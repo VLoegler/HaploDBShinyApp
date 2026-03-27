@@ -96,7 +96,7 @@ review_server <- function(id, main_conn, pending_conn, user_info) {
                              options = list(dom = "t", language = list(emptyTable = "No pending entries."))))
       }
       DT::datatable(df, selection = "multiple", rownames = FALSE,
-                    options = list(scrollX = TRUE, pageLength = 25, dom = "tip"))
+                    options = list(scrollX = TRUE, scrollY = "calc(100vh - 300px)", paging = FALSE, dom = "ti"))
     })
 
     observeEvent(input$select_all_btn, {

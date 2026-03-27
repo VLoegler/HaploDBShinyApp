@@ -151,6 +151,11 @@ notifications_server <- function(id, main_conn, pending_conn, user_info, active_
       }
 
       all_subs <- dplyr::bind_rows(pending_yjs, pending_strains, resolved)
+      if (nrow(all_subs) > 0) {
+        all_subs <- all_subs[order(all_subs$status != "pending",
+                                   as.POSIXct(all_subs$submitted_at),
+                                   decreasing = c(FALSE, TRUE)), ]
+      }
       if (nrow(all_subs) == 0) all_subs <- empty_subs()
 
       submissions(all_subs)
@@ -227,7 +232,7 @@ notifications_server <- function(id, main_conn, pending_conn, user_info, active_
         class = "display",
         filter = "top",
         options = list(
-          scrollX = TRUE, pageLength = 25, dom = "tip",
+          scrollX = TRUE, scrollY = "calc(100vh - 300px)", paging = FALSE, dom = "ti",
           columnDefs = list(list(visible = FALSE, targets = 12)),
           rowCallback = htmlwidgets::JS(
             "function(row, data, displayNum, displayIndex, dataIndex) {

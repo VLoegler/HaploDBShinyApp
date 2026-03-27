@@ -172,6 +172,8 @@ browse_server <- function(id, main_conn, user_info) {
           )
         }
       }
+      num_cols <- names(df)[sapply(df, is.numeric)]
+      for (col in num_cols) df[[col]] <- as.character(df[[col]])
       species_col_idx <- which(cols %in% c("SPECIES", "STRAIN_SPECIES"))
       DT::datatable(
         df,

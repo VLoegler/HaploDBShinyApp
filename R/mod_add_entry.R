@@ -690,12 +690,12 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
         req(nrow(df) > 0)
         DT::datatable(df, rownames = FALSE,
                       selection = list(mode = "single"),
-                      options = list(scrollX = TRUE, pageLength = 10, dom = "tip"))
+                      options = list(scrollX = TRUE, scrollY = "400px", paging = FALSE, dom = "ti"))
       } else {
         req(yjs_preview_data())
         DT::datatable(yjs_preview_data(), rownames = FALSE,
                       selection = "none",
-                      options = list(scrollX = TRUE, pageLength = 10, dom = "tip"))
+                      options = list(scrollX = TRUE, scrollY = "400px", paging = FALSE, dom = "ti"))
       }
     })
 
@@ -1016,12 +1016,12 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
         req(nrow(df) > 0)
         DT::datatable(df, rownames = FALSE,
                       selection = list(mode = "single"),
-                      options = list(scrollX = TRUE, pageLength = 10, dom = "tip"))
+                      options = list(scrollX = TRUE, scrollY = "400px", paging = FALSE, dom = "ti"))
       } else {
         req(strain_preview_data())
         DT::datatable(strain_preview_data(), rownames = FALSE,
                       selection = "none",
-                      options = list(scrollX = TRUE, pageLength = 10, dom = "tip"))
+                      options = list(scrollX = TRUE, scrollY = "400px", paging = FALSE, dom = "ti"))
       }
     })
 
