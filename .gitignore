@@ -2,6 +2,9 @@ config.yml
 data/haploDB/haplodb.sqlite
 data/haploDB/haplodb.sqlite-wal
 data/haploDB/haplodb.sqlite-shm
+data/haploDB/haploDB.sqlite
+data/haploDB/haploDB.sqlite-wal
+data/haploDB/haploDB.sqlite-shm
 data/pending.sqlite
 data/pending.sqlite-wal
 data/pending.sqlite-shm
