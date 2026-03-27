@@ -1,0 +1,70 @@
+/* HaploDB v2 — Minimal custom styles */
+
+/* Login page centering */
+.login-container {
+  max-width: 400px;
+  margin: 80px auto;
+  padding: 2rem;
+}
+
+.login-container .login-logo {
+  display: block;
+  margin: 0 auto 1.5rem auto;
+  max-width: 200px;
+  height: auto;
+}
+
+/* Navbar logo sizing */
+.navbar-brand img.navbar-logo,
+img.navbar-logo {
+  max-width: 150px !important;
+  max-height: 28px !important;
+  width: auto !important;
+  height: auto !important;
+  margin-right: 8px;
+}
+
+/* Card spacing */
+.card {
+  margin-bottom: 1rem;
+}
+
+/* DT table adjustments */
+.dataTables_wrapper {
+  padding: 0.5rem 0;
+}
+
+/* Hide tabs before login */
+.hidden-tab {
+  display: none !important;
+}
+
+/* Navbar tab badge */
+.tab-badge {
+  font-size: 0.7em;
+  vertical-align: middle;
+  margin-left: 4px;
+  border-radius: 10px;
+  padding: 2px 6px;
+}
+
+/* Home / Welcome page */
+.home-container {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+.home-logo {
+  max-width: 220px;
+  height: auto;
+  margin-bottom: 1rem;
+}
+
+.stat-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.2rem 1.8rem;
+  min-width: 160px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}

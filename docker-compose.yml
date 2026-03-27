@@ -1,0 +1,10 @@
+services:
+  haplodb:
+    build: .
+    container_name: haplodb-app
+    restart: unless-stopped
+    ports:
+      - "3838:3838"
+    volumes:
+      - ./data:/srv/shiny-server/haplodb/data
+      - ./config.yml:/srv/shiny-server/haplodb/config.yml

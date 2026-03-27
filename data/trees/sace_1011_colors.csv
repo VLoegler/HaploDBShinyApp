@@ -1,0 +1,35 @@
+clade,hex_color
+01. Wine/European,#f4d0b5
+02. Alpechin,#4b4b4d
+03. Brazilian bioethanol,#f4c07a
+04. Mediterranean oak,#396c3a
+05. French dairy,#ee8642
+06. African beer,#eb5e4c
+07. Mosaic beer,#e72435
+08. Mixed origin,#818386
+09. Mexican agave,#dd5697
+10. French Guiana human,#96989a
+11. Ale beer,#c75796
+12. West African cocoa,#b35092
+13. African palm wine,#8f5a93
+14. CHNIII,#208145
+15. CHNII,#178d4a
+16. CHNI,#00a554
+17. Taiwanese,#6db47e
+18. Far East Asia,#80bb86
+19. Malaysian,#65c2d7
+20. CHN V,#00b1bf
+21. Ecuadorean,#008e97
+22. Far East Russian,#007b99
+23. North American oak,#045087
+24. Asian islands,#afb1b3
+25. Sake,#6d5494
+26. Asian fermentation,#c3c5c7
+M1. Mosaic region 1,#b8ac97
+M2. Mosaic region 2,#947f77
+M3. Mosaic region 3,#7a6b5d
+Unclustered,#ffffff
+W1. Wild,#db767b
+W2. Clinical Y' amplification,#dd8a8b
+W3. Clinical/Saccharomyces boulardii,#e4a1a0
+W4. Georgian,#eebebe

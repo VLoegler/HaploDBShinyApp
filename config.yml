@@ -1,0 +1,8 @@
+default:
+  database:
+    main_path: "data/haploDB/haplodb.sqlite"
+    pending_path: "data/pending.sqlite"
+    users_path: "data/users.sqlite"
+  admin:
+    username: "admin"
+    password: "changeme"
