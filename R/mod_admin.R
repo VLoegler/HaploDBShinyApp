@@ -15,18 +15,26 @@ admin_ui <- function(id) {
       card_header("User Accounts"),
       DT::dataTableOutput(ns("users_table"))
     ),
-    card(
-      card_header("Add New User"),
-      textInput(ns("new_username"), "Username"),
-      passwordInput(ns("new_password"), "Password"),
-      passwordInput(ns("confirm_password"), "Confirm Password"),
-      selectInput(ns("new_role"), "Role", choices = c("basic", "admin")),
-      actionButton(ns("add_user_btn"), "Add User", class = "btn-primary w-100"),
-      uiOutput(ns("add_feedback")),
-      tags$hr(),
-      card_header("Delete User"),
-      uiOutput(ns("delete_ui")),
-      uiOutput(ns("delete_feedback"))
+    tagList(
+      card(
+        card_header("Add New User"),
+        textInput(ns("new_username"), "Username"),
+        passwordInput(ns("new_password"), "Password"),
+        passwordInput(ns("confirm_password"), "Confirm Password"),
+        selectInput(ns("new_role"), "Role", choices = c("basic", "admin")),
+        actionButton(ns("add_user_btn"), "Add User", class = "btn-primary w-100"),
+        uiOutput(ns("add_feedback"))
+      ),
+      card(
+        card_header("Reset User Password"),
+        uiOutput(ns("reset_ui")),
+        uiOutput(ns("reset_feedback"))
+      ),
+      card(
+        card_header("Delete User"),
+        uiOutput(ns("delete_ui")),
+        uiOutput(ns("delete_feedback"))
+      )
     )
   )
 }
@@ -111,6 +119,60 @@ admin_server <- function(id, users_conn, user_info) {
                  sprintf("User '%s' created successfully.", username))
       )
       load_users()
+    })
+
+    # Reset user password UI
+    output$reset_ui <- renderUI({
+      req(users_data())
+      choices <- setNames(users_data()$id, users_data()$username)
+      tagList(
+        selectInput(ns("reset_user_id"), "Select user", choices = choices),
+        passwordInput(ns("reset_new_password"), "New Password"),
+        passwordInput(ns("reset_confirm_password"), "Confirm Password"),
+        actionButton(ns("reset_password_btn"), "Reset Password",
+                     class = "btn-warning w-100")
+      )
+    })
+
+    observeEvent(input$reset_password_btn, {
+      req(is_admin(user_info()))
+
+      target_id <- as.integer(input$reset_user_id)
+      new_pw    <- input$reset_new_password
+      confirm   <- input$reset_confirm_password
+
+      if (nchar(new_pw) < 6) {
+        output$reset_feedback <- renderUI(
+          tags$div(class = "alert alert-danger mt-2",
+                   "Password must be at least 6 characters.")
+        )
+        return()
+      }
+
+      if (new_pw != confirm) {
+        output$reset_feedback <- renderUI(
+          tags$div(class = "alert alert-danger mt-2", "Passwords do not match.")
+        )
+        return()
+      }
+
+      target <- users_data() %>% filter(id == target_id)
+      if (nrow(target) == 0) return()
+
+      new_hash <- hash_password(new_pw)
+      DBI::dbExecute(
+        users_conn,
+        "UPDATE users SET password_hash = ? WHERE id = ?",
+        params = list(new_hash, target_id)
+      )
+
+      updateTextInput(session, "reset_new_password",     value = "")
+      updateTextInput(session, "reset_confirm_password", value = "")
+
+      output$reset_feedback <- renderUI(
+        tags$div(class = "alert alert-success mt-2",
+                 sprintf("Password for '%s' has been reset.", target$username))
+      )
     })
 
     # Delete user UI
