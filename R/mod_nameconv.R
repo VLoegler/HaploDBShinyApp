@@ -22,7 +22,7 @@ nameconv_ui <- function(id) {
       td.details-control:hover { color: #0a58ca; }
       tr.child-row td {
         padding: 12px 16px;
-        background-color: #f8f9fa;
+        background-color: var(--bs-tertiary-bg, #f8f9fa);
       }
       .child-detail { max-width: 700px; }
       .child-detail .detail-row {

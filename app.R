@@ -30,7 +30,7 @@ onStop(function() {
   DBI::dbDisconnect(users_conn)
 })
 
-# Theme
+# Theme (light + dark mode support)
 app_theme <- bs_theme(
   version = 5,
   bg = "#FFFFFF",
@@ -40,7 +40,13 @@ app_theme <- bs_theme(
   base_font = font_google("Inter"),
   heading_font = font_google("Inter"),
   font_scale = 0.95
-)
+) |>
+  bs_theme_update(
+    preset = "shiny",
+    bg = "#FFFFFF",
+    fg = "#1B2A4A",
+    primary = "#2E6DAE"
+  )
 
 # UI
 ui <- fluidPage(
@@ -49,6 +55,14 @@ ui <- fluidPage(
   tags$head(
     tags$link(rel = "stylesheet", href = "custom.css"),
     tags$script(HTML("
+      // Applying preference immediately to avoid a light-flash on load
+      (function() {
+        var stored = localStorage.getItem('haplodb_dark_mode');
+        var mode = stored !== null ? stored
+                   : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-bs-theme', mode);
+      })();
+
       $(document).on('shiny:connected', function() {
         if (!window._haplodb_handlers) {
           Shiny.addCustomMessageHandler('save_session_token', function(token) {
@@ -81,7 +95,31 @@ ui <- fluidPage(
         if (tab) {
           Shiny.setInputValue('restored_tab', tab, {priority: 'event'});
         }
+        // Persisting manual toggles — delegated so it survives DOM re-renders,
+        // and only fires on real user clicks (not bslib init)
+        $(document).on('click', '#dark_mode', function() {
+          setTimeout(function() {
+            var mode = document.documentElement.getAttribute('data-bs-theme') || 'light';
+            localStorage.setItem('haplodb_dark_mode', mode);
+          }, 50);
+        });
+
+        // Re-syncing preference every time main_ui re-renders (login -> app and app -> logout).
+        // bslib resets data-bs-theme to its mode param on each widget init, so we re-apply after.
+        $(document).on('shiny:value', function(e) {
+          if (e.name !== 'main_ui') return;
+          setTimeout(function() {
+            var stored = localStorage.getItem('haplodb_dark_mode');
+            var preferred = stored !== null ? stored
+                            : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            var current = document.documentElement.getAttribute('data-bs-theme') || 'light';
+            if (preferred !== current) {
+              $('#dark_mode').trigger('click');
+            }
+          }, 50);
+        });
       });
+
       $(document).on('keypress', '#login-username, #login-password', function(e) {
         if (e.which === 13) {
           $('#login-username').trigger('change');
@@ -116,13 +154,19 @@ server <- function(input, output, session) {
     if (!logged_in) {
       # Login page
       tags$div(
-        style = "min-height: 100vh; background: #F5F6F8; display: flex; align-items: center; justify-content: center;",
+        class = "login-page",
+        style = "min-height: 100vh; display: flex; align-items: center; justify-content: center;",
+        # Dark mode toggle on login page (top-right corner)
+        tags$div(
+          style = "position: fixed; top: 1rem; right: 1rem; z-index: 1000;",
+          input_dark_mode(id = "dark_mode", mode = "light")
+        ),
         card(
           style = "width: 380px;",
           tags$div(
             class = "text-center p-3",
             tags$img(src = "haplologo.webp", style = "max-width: 180px; margin-bottom: 1rem;"),
-            tags$h4("Sign in to HaploDB", style = "color: #1B2A4A; margin-bottom: 1.5rem;"),
+            tags$h4("Sign in to HaploDB", class = "login-title", style = "margin-bottom: 1.5rem;"),
             textInput("login-username", "Username", placeholder = "Enter username"),
             passwordInput("login-password", "Password", placeholder = "Enter password"),
             tags$br(),
@@ -171,14 +215,14 @@ server <- function(input, output, session) {
 
       tabs <- c(tabs, list(
         nav_spacer(),
+        nav_item(input_dark_mode(id = "dark_mode", mode = "light")),
         nav_item(tags$span(
           class = "navbar-text me-2",
-          style = "color: white;",
           icon("user"), " ", user_info()$username
         )),
         nav_item(
           actionButton("logout_btn", "Logout", icon = icon("sign-out-alt"),
-                       class = "btn btn-sm btn-outline-light")
+                       class = "btn btn-sm btn-outline-secondary")
         )
       ))
 

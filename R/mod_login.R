@@ -20,7 +20,7 @@ login_modal_ui <- function(id) {
       class = "login-container",
       tags$img(src = "haplologo.webp", class = "login-logo"),
       tags$h4("Sign in to HaploDB", class = "text-center mb-4",
-              style = "color: #1B2A4A;"),
+              style = "color: var(--bs-body-color);"),
       textInput(ns("username"), "Username", placeholder = "Enter username"),
       passwordInput(ns("password"), "Password", placeholder = "Enter password"),
       tags$br(),

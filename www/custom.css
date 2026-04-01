@@ -68,3 +68,87 @@ img.navbar-logo {
   min-width: 160px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
+
+/* ── Dark mode overrides ── */
+
+/* Login page background */
+.login-page {
+  background: var(--bs-body-bg);
+}
+
+/* Login title inherits theme colors */
+.login-title {
+  color: var(--bs-body-color);
+}
+
+/* Stat cards adapt to dark mode */
+[data-bs-theme="dark"] .stat-card {
+  background: var(--bs-tertiary-bg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* DT tables in dark mode */
+[data-bs-theme="dark"] .dataTables_wrapper {
+  color: var(--bs-body-color);
+}
+
+[data-bs-theme="dark"] table.dataTable {
+  color: var(--bs-body-color);
+  background-color: var(--bs-body-bg);
+}
+
+[data-bs-theme="dark"] table.dataTable thead th,
+[data-bs-theme="dark"] table.dataTable thead td {
+  background-color: var(--bs-tertiary-bg);
+  color: var(--bs-body-color);
+  border-bottom-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] table.dataTable tbody tr {
+  background-color: var(--bs-body-bg);
+  color: var(--bs-body-color);
+}
+
+[data-bs-theme="dark"] table.dataTable tbody tr:hover {
+  background-color: var(--bs-tertiary-bg);
+}
+
+[data-bs-theme="dark"] table.dataTable tbody tr.odd {
+  background-color: var(--bs-secondary-bg);
+}
+
+/* DT search/filter inputs */
+[data-bs-theme="dark"] .dataTables_filter input,
+[data-bs-theme="dark"] .dataTables_length select {
+  background-color: var(--bs-secondary-bg);
+  color: var(--bs-body-color);
+  border-color: var(--bs-border-color);
+}
+
+/* DT pagination */
+[data-bs-theme="dark"] .dataTables_paginate .paginate_button {
+  color: var(--bs-body-color) !important;
+}
+
+[data-bs-theme="dark"] .dataTables_info {
+  color: var(--bs-secondary-color);
+}
+
+/* Dark mode toggle styling in navbar */
+.navbar .bslib-dark-mode {
+  display: flex;
+  align-items: center;
+}
+
+/* Logout button — adapts to navbar text color in both light and dark mode */
+.navbar #logout_btn {
+  color: var(--bs-navbar-color);
+  border-color: var(--bs-navbar-color);
+  background-color: transparent;
+}
+.navbar #logout_btn:hover,
+.navbar #logout_btn:focus {
+  color: var(--bs-navbar-bg, var(--bs-primary));
+  background-color: var(--bs-navbar-color);
+  border-color: var(--bs-navbar-color);
+}
