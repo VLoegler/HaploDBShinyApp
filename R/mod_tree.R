@@ -59,7 +59,8 @@ render_tree <- function(dataset, layout, color_clades, show_legend,
                         highlights, highlight_color, highlight_size,
                         label_size, branch_color, branch_width,
                         use_branch_length, clade_mode = "super_and_clades",
-                        clade_point_size = 0.5) {
+                        clade_point_size = 0.5,
+                        highlight_use_clade_colors = FALSE) {
   tree <- dataset$tree
   ann <- dataset$annotation
   colors_df <- dataset$colors
@@ -129,14 +130,24 @@ render_tree <- function(dataset, layout, color_clades, show_legend,
   }
 
   if (any(tip_df$is_highlight)) {
-    p <- p + ggtree::geom_tippoint(
-      ggplot2::aes(subset = is_highlight),
-      shape = 16, size = highlight_size, color = highlight_color
-    ) +
-      ggtree::geom_tiplab(
-        ggplot2::aes(subset = is_highlight, label = label),
-        size = label_size / ggplot2::.pt, hjust = -1, color = highlight_color
+    if (highlight_use_clade_colors) {
+      if (!color_clades) {
+        p <- p + ggplot2::scale_color_manual(values = color_values, na.translate = FALSE)
+      }
+      p <- p + ggtree::geom_tippoint(
+        ggplot2::aes(subset = is_highlight, color = clade_group),
+        shape = 16, size = highlight_size
       )
+    } else {
+      p <- p + ggtree::geom_tippoint(
+        ggplot2::aes(subset = is_highlight),
+        shape = 16, size = highlight_size, color = highlight_color
+      )
+    }
+    p <- p + ggtree::geom_tiplab(
+      ggplot2::aes(subset = is_highlight, label = label),
+      size = label_size / ggplot2::.pt, hjust = -1, color = highlight_color
+    )
   }
 
   if (!show_legend) {
@@ -179,6 +190,7 @@ tree_ui <- function(id) {
       textAreaInput(ns("highlights"), NULL,
                     placeholder = "One strain per line or comma-separated",
                     rows = 4),
+      checkboxInput(ns("highlight_use_clade_colors"), "Use Clade Colors for Highlights", value = FALSE),
       tags$hr(),
       actionButton(ns("generate_btn"), "Generate", class = "btn-primary w-100 mb-2"),
       downloadButton(ns("download_plot"), "Download Plot", class = "btn-outline-secondary w-100"),
@@ -263,7 +275,8 @@ tree_server <- function(id, user_info) {
         branch_width = input$branch_width,
         use_branch_length = input$use_branch_length,
         clade_mode = input$clade_mode %||% "super_and_clades",
-        clade_point_size = input$clade_point_size
+        clade_point_size = input$clade_point_size,
+        highlight_use_clade_colors = input$highlight_use_clade_colors
       )
     })
 

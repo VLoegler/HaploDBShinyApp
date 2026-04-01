@@ -189,7 +189,9 @@ server <- function(input, output, session) {
                   add_entry_ui("add_entry")),
         nav_panel(title = tags$span(icon("inbox"), "My Submissions"),
                   value = "submissions",
-                  notifications_ui("notifications"))
+                  notifications_ui("notifications")),
+        nav_panel("Account", value = "account", icon = icon("user-circle"),
+                  change_password_ui("change_password"))
       )
 
       if (admin) {
@@ -272,6 +274,7 @@ server <- function(input, output, session) {
   unread_count <- notifications_server("notifications", main_conn, pending_conn, user_info, active_tab)
   tree_server("tree", user_info)
   admin_server("admin", users_conn, user_info)
+  change_password_server("change_password", users_conn, user_info)
 
   # Badge updates (req ensures navbar DOM exists before sending)
   observe({
