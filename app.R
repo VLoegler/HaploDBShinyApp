@@ -121,7 +121,7 @@ server <- function(input, output, session) {
           style = "width: 380px;",
           tags$div(
             class = "text-center p-3",
-            tags$img(src = "haplologo.webp", style = "max-width: 180px; margin-bottom: 1rem;"),
+            tags$img(src = "Haploteam.svg", style = "max-width: 180px; margin-bottom: 1rem;"),
             tags$h4("Sign in to HaploDB", style = "color: #1B2A4A; margin-bottom: 1.5rem;"),
             textInput("login-username", "Username", placeholder = "Enter username"),
             passwordInput("login-password", "Password", placeholder = "Enter password"),
@@ -187,7 +187,7 @@ server <- function(input, output, session) {
       do.call(page_navbar, c(
         list(
           id = "main_navbar",
-          title = tags$img(src = "HaploDB.png", class = "navbar-logo"),
+          title = tags$img(src = "HaploDB.svg", class = "navbar-logo"),
           theme = app_theme
         ),
         tabs
