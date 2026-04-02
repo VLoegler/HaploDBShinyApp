@@ -5,7 +5,7 @@ home_ui <- function(id) {
       class = "home-container",
       tags$div(
         class = "text-center mb-4",
-        tags$img(src = "haplologo.webp", class = "home-logo"),
+        tags$img(src = "Haploteam.svg", class = "home-logo logo-swap", `data-light` = "Haploteam.svg", `data-dark` = "Haploteam_White.svg"),
         tags$h2("Welcome to HaploDB",
                  style = "color: var(--bs-body-color); font-weight: 700;"),
         tags$p("Yeast strain and sample database",

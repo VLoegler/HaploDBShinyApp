@@ -18,7 +18,7 @@ login_modal_ui <- function(id) {
     footer = NULL,
     tags$div(
       class = "login-container",
-      tags$img(src = "haplologo.webp", class = "login-logo"),
+      tags$img(src = "Haploteam.svg", class = "login-logo logo-swap", `data-light` = "Haploteam.svg", `data-dark` = "Haploteam_White.svg"),
       tags$h4("Sign in to HaploDB", class = "text-center mb-4",
               style = "color: var(--bs-body-color);"),
       textInput(ns("username"), "Username", placeholder = "Enter username"),

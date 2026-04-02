@@ -191,7 +191,7 @@ add_entry_ui <- function(id) {
             textInput(ns("yjs_stocked_by"), "Stocked By *"),
             tags$p(
               class = "info-text-blue",
-              style = "color: #0d6efd; margin-bottom: 0.5rem;",
+              style = "margin-bottom: 0.5rem;",
               "At least box number or plate location (Plate + Row + Col) must be filled."
             ),
             textInput(ns("yjs_box_number"), "Box Number"),

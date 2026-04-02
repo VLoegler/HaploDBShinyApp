@@ -61,6 +61,18 @@ ui <- fluidPage(
         var mode = stored !== null ? stored
                    : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
         document.documentElement.setAttribute('data-bs-theme', mode);
+
+        function swapLogos() {
+          var theme = document.documentElement.getAttribute('data-bs-theme') || 'light';
+          document.querySelectorAll('.logo-swap').forEach(function(img) {
+            var src = theme === 'dark' ? img.getAttribute('data-dark') : img.getAttribute('data-light');
+            if (src) img.setAttribute('src', src);
+          });
+        }
+        swapLogos();
+
+        new MutationObserver(function() { swapLogos(); })
+          .observe(document.documentElement, { attributes: true, attributeFilter: ['data-bs-theme'] });
       })();
 
       $(document).on('shiny:connected', function() {
@@ -165,7 +177,7 @@ server <- function(input, output, session) {
           style = "width: 380px;",
           tags$div(
             class = "text-center p-3",
-            tags$img(src = "haplologo.webp", style = "max-width: 180px; margin-bottom: 1rem;"),
+            tags$img(src = "Haploteam.svg", class = "logo-swap", `data-light` = "Haploteam.svg", `data-dark` = "Haploteam_White.svg", style = "max-width: 180px; margin-bottom: 1rem;"),
             tags$h4("Sign in to HaploDB", class = "login-title", style = "margin-bottom: 1.5rem;"),
             textInput("login-username", "Username", placeholder = "Enter username"),
             passwordInput("login-password", "Password", placeholder = "Enter password"),
@@ -231,7 +243,7 @@ server <- function(input, output, session) {
       do.call(page_navbar, c(
         list(
           id = "main_navbar",
-          title = tags$img(src = "HaploDB.png", class = "navbar-logo"),
+          title = tags$img(src = "HaploDB.svg", class = "navbar-logo logo-swap", `data-light` = "HaploDB.svg", `data-dark` = "HaploDB_White.svg"),
           theme = app_theme
         ),
         tabs
