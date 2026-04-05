@@ -15,14 +15,14 @@ nameconv_ui <- function(id) {
         cursor: pointer;
         font-weight: bold;
         font-size: 1.2em;
-        color: #0d6efd;
+        color: var(--bs-primary, #0d6efd);
         text-align: center;
         width: 30px;
       }
-      td.details-control:hover { color: #0a58ca; }
+      td.details-control:hover { color: var(--bs-link-hover-color, #0a58ca); }
       tr.child-row td {
         padding: 12px 16px;
-        background-color: #f8f9fa;
+        background-color: var(--bs-tertiary-bg, #f8f9fa);
       }
       .child-detail { max-width: 700px; }
       .child-detail .detail-row {
@@ -32,7 +32,7 @@ nameconv_ui <- function(id) {
       .child-detail .detail-label {
         flex: 0 0 160px;
         font-weight: 600;
-        color: #6c757d;
+        color: var(--bs-secondary-color, #6c757d);
         text-align: right;
         padding-right: 12px;
       }
