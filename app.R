@@ -117,18 +117,34 @@ ui <- fluidPage(
         });
 
         // Re-syncing preference every time main_ui re-renders (login -> app and app -> logout).
-        // bslib resets data-bs-theme to its mode param on each widget init, so we re-apply after.
+        // bslib resets data-bs-theme to its mode param on each widget init, so we
+        // force the attribute back to the stored preference and click the toggle
+        // at multiple delays to ensure the widget is fully initialised.
         $(document).on('shiny:value', function(e) {
           if (e.name !== 'main_ui') return;
-          setTimeout(function() {
-            var stored = localStorage.getItem('haplodb_dark_mode');
-            var preferred = stored !== null ? stored
-                            : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-            var current = document.documentElement.getAttribute('data-bs-theme') || 'light';
-            if (preferred !== current) {
-              $('#dark_mode').trigger('click');
-            }
-          }, 50);
+          var stored = localStorage.getItem('haplodb_dark_mode');
+          var preferred = stored !== null ? stored
+                          : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+          // Immediately force the attribute so there's no visible flash
+          document.documentElement.setAttribute('data-bs-theme', preferred);
+          // Then sync the toggle widget once it's ready
+          [100, 300, 600].forEach(function(delay) {
+            setTimeout(function() {
+              var current = document.documentElement.getAttribute('data-bs-theme') || 'light';
+              if (preferred !== current) {
+                document.documentElement.setAttribute('data-bs-theme', preferred);
+              }
+              // Sync the toggle checkbox state with the actual theme
+              var $toggle = $('#dark_mode');
+              if ($toggle.length) {
+                var isDark = preferred === 'dark';
+                var isChecked = $toggle.is(':checked');
+                if (isDark !== isChecked) {
+                  $toggle.trigger('click');
+                }
+              }
+            }, delay);
+          });
         });
       });
 
