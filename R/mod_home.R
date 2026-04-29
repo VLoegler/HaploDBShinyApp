@@ -5,17 +5,17 @@ home_ui <- function(id) {
       class = "home-container",
       tags$div(
         class = "text-center mb-4",
-        tags$img(src = "Haploteam.svg", class = "home-logo"),
+        tags$img(src = "Haploteam.svg", class = "home-logo logo-swap", `data-light` = "Haploteam.svg", `data-dark` = "Haploteam_White.svg"),
         tags$h2("Welcome to HaploDB",
-                 style = "color: #1B2A4A; font-weight: 700;"),
+                 style = "color: var(--bs-body-color); font-weight: 700;"),
         tags$p("Yeast strain and sample database",
-               style = "color: #6C757D; font-size: 1.1rem;")
+               style = "color: var(--bs-secondary-color); font-size: 1.1rem;")
       ),
       uiOutput(ns("stat_cards")),
       tags$div(
         class = "text-center mt-4",
         tags$h5("Quick Actions",
-                 style = "color: #1B2A4A; margin-bottom: 1rem;"),
+                 style = "color: var(--bs-body-color); margin-bottom: 1rem;"),
         tags$div(
           class = "d-flex justify-content-center gap-3 flex-wrap",
           actionButton(ns("go_browse"), "Browse Database",
@@ -79,8 +79,8 @@ stat_card <- function(label, value, icon_name, color) {
                         margin-bottom: 0.5rem;")
       ),
       tags$h3(format(value, big.mark = ","),
-              style = "margin: 0; font-weight: 700; color: #1B2A4A;"),
-      tags$p(label, style = "margin: 0; color: #6C757D; font-size: 0.9rem;")
+              style = "margin: 0; font-weight: 700; color: var(--bs-body-color);"),
+      tags$p(label, style = "margin: 0; color: var(--bs-secondary-color); font-size: 0.9rem;")
     )
   )
 }
