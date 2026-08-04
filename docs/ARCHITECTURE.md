@@ -135,7 +135,7 @@ User (admin or basic) submits entry
 
 **Sequencing**: `SeqData`, `Genotypes`, `Assemblies` (FK → YJSnumbers, Projects)
 
-**Phenotyping**: `GrowthPhenotypes`, `RNASeqPhenotypes`, `ProteomicsPhenotypes` (FK → YJSnumbers, Conditions, Projects)
+**Phenotyping**: `GrowthPhenotypes` (FK → YJSnumbers, Conditions, Projects)
 
 **Other**: `Conditions` (PK: ID_CONDITION), `Projects` (PK: ID_Project)
 
@@ -150,8 +150,6 @@ User (admin or basic) submits entry
 | `pending_altnames` | `AltNames` | id, submitted_by, submitted_at |
 | `pending_seqdata` | `SeqData` | id, submitted_by, submitted_at |
 | `pending_growth` | `GrowthPhenotypes` | id, submitted_by, submitted_at |
-| `pending_rnaseq` | `RNASeqPhenotypes` | id, submitted_by, submitted_at |
-| `pending_proteomics` | `ProteomicsPhenotypes` | id, submitted_by, submitted_at |
 
 v1 actively uses: `pending_yjs`, `pending_strains`. Others are created but unused.
 
