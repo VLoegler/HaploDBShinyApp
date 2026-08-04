@@ -118,33 +118,6 @@ ensure_pending_tables <- function(sqlite_conn) {
   ")
 
   DBI::dbExecute(sqlite_conn, "
-    CREATE TABLE IF NOT EXISTS pending_rnaseq (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      YJS_NUMBER TEXT NOT NULL,
-      COND TEXT NOT NULL,
-      GENE TEXT NOT NULL,
-      COUNT REAL,
-      TPM REAL,
-      ID_Project TEXT,
-      submitted_by TEXT NOT NULL,
-      submitted_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )
-  ")
-
-  DBI::dbExecute(sqlite_conn, "
-    CREATE TABLE IF NOT EXISTS pending_proteomics (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      YJS_NUMBER TEXT NOT NULL,
-      COND TEXT NOT NULL,
-      PROTEIN TEXT NOT NULL,
-      PROT_ABUNDANCE REAL,
-      ID_Project TEXT,
-      submitted_by TEXT NOT NULL,
-      submitted_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )
-  ")
-
-  DBI::dbExecute(sqlite_conn, "
     CREATE TABLE IF NOT EXISTS custom_options (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       field_name TEXT NOT NULL,

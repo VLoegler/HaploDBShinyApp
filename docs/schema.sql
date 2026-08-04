@@ -148,33 +148,6 @@ CREATE INDEX idx_GrowthPhenotypes_COND ON GrowthPhenotypes (COND);
 CREATE INDEX idx_GrowthPhenotypes_REF_COND ON GrowthPhenotypes (REF_COND);
 CREATE INDEX idx_GrowthPhenotypes_ID_Project ON GrowthPhenotypes (ID_Project);
 
-CREATE TABLE IF NOT EXISTS RNASeqPhenotypes (
-  ID INTEGER PRIMARY KEY AUTOINCREMENT,
-  YJS_NUMBER varchar(50) NOT NULL REFERENCES YJSnumbers(YJS_NUMBER),
-  COND varchar(50) NOT NULL REFERENCES Conditions(ID_CONDITION),
-  GENE TEXT NOT NULL,
-  COUNT REAL,
-  TPM REAL,
-  ID_Project varchar(50) REFERENCES Projects(ID_Project)
-);
-
-CREATE INDEX idx_RNASeqPhenotypes_YJS_NUMBER ON RNASeqPhenotypes (YJS_NUMBER);
-CREATE INDEX idx_RNASeqPhenotypes_COND ON RNASeqPhenotypes (COND);
-CREATE INDEX idx_RNASeqPhenotypes_ID_Project ON RNASeqPhenotypes (ID_Project);
-
-CREATE TABLE IF NOT EXISTS ProteomicsPhenotypes (
-  ID INTEGER PRIMARY KEY AUTOINCREMENT,
-  YJS_NUMBER varchar(50) NOT NULL REFERENCES YJSnumbers(YJS_NUMBER),
-  COND varchar(50) NOT NULL REFERENCES Conditions(ID_CONDITION),
-  PROTEIN TEXT NOT NULL,
-  PROT_ABUNDANCE REAL,
-  ID_Project varchar(50) REFERENCES Projects(ID_Project)
-);
-
-CREATE INDEX idx_ProteomicsPhenotypes_YJS_NUMBER ON ProteomicsPhenotypes (YJS_NUMBER);
-CREATE INDEX idx_ProteomicsPhenotypes_COND ON ProteomicsPhenotypes (COND);
-CREATE INDEX idx_ProteomicsPhenotypes_ID_Project ON ProteomicsPhenotypes (ID_Project);
-
 -- ============================================================================
 -- users.sqlite — User accounts (data/users.sqlite)
 -- ============================================================================
@@ -272,29 +245,6 @@ CREATE TABLE IF NOT EXISTS pending_growth (
   SIZE_REF REAL,
   GROWTHRATIO REAL,
   TIMEPOINT TEXT,
-  ID_Project TEXT,
-  submitted_by TEXT NOT NULL,
-  submitted_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS pending_rnaseq (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  YJS_NUMBER TEXT NOT NULL,
-  COND TEXT NOT NULL,
-  GENE TEXT NOT NULL,
-  COUNT REAL,
-  TPM REAL,
-  ID_Project TEXT,
-  submitted_by TEXT NOT NULL,
-  submitted_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS pending_proteomics (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  YJS_NUMBER TEXT NOT NULL,
-  COND TEXT NOT NULL,
-  PROTEIN TEXT NOT NULL,
-  PROT_ABUNDANCE REAL,
   ID_Project TEXT,
   submitted_by TEXT NOT NULL,
   submitted_at TEXT NOT NULL DEFAULT (datetime('now'))
