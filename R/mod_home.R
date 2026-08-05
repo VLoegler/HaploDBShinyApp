@@ -33,25 +33,25 @@ home_ui <- function(id) {
   )
 }
 
-home_server <- function(id, main_conn, user_info, navigate) {
+home_server <- function(id, db_conn, user_info, navigate) {
   moduleServer(id, function(input, output, session) {
 
     output$stat_cards <- renderUI({
       req(user_info())
 
-      n_yjs <- DBI::dbGetQuery(
-        main_conn,
-        "SELECT COUNT(*) AS n FROM YJSnumbers
-         WHERE YJS_NUMBER LIKE 'YJS%'"
-      )$n
-      n_strains <- DBI::dbGetQuery(
-        main_conn, "SELECT COUNT(*) AS n FROM Strains"
-      )$n
-      n_species <- DBI::dbGetQuery(
-        main_conn,
-        "SELECT COUNT(DISTINCT SPECIES) AS n FROM YJSnumbers
-         WHERE SPECIES IS NOT NULL AND SPECIES != ''"
-      )$n
+      n_yjs <- as.integer(DBI::dbGetQuery(
+        db_conn,
+        "SELECT COUNT(*) FROM yjs_numbers
+         WHERE yjs_number LIKE 'YJS%'"
+      )[[1]])
+      n_strains <- as.integer(DBI::dbGetQuery(
+        db_conn, "SELECT COUNT(*) FROM strains"
+      )[[1]])
+      n_species <- as.integer(DBI::dbGetQuery(
+        db_conn,
+        "SELECT COUNT(DISTINCT species) FROM yjs_numbers
+         WHERE species IS NOT NULL AND species != ''"
+      )[[1]])
 
       tags$div(
         class = "row justify-content-center g-3",

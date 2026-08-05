@@ -1,10 +1,10 @@
 #' Browse Database Module
 #'
-#' Displays YJSnumbers LEFT JOIN Strains as a flat table with per-column filters,
+#' Displays yjs_numbers LEFT JOIN strains as a flat table with per-column filters,
 #' column visibility toggle, global search, and TSV download.
 #'
 #' @param id Module namespace ID
-#' @param main_conn Main SQLite DB connection
+#' @param db_conn DB connection
 #' @param user_info Reactive returning logged-in user data.frame
 
 browse_ui <- function(id) {
@@ -73,28 +73,46 @@ browse_ui <- function(id) {
   )
 }
 
-browse_server <- function(id, main_conn, user_info) {
+browse_server <- function(id, db_conn, user_info) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
-    default_cols <- c("YJS_NUMBER", "SAMPLE_NAME", "SPECIES", "MATING_TYPE",
-                      "BOX_NUMBER", "BOX_ROW", "BOX_COL",
-                      "PLATE", "PLATE_ROW", "PLATE_COL",
-                      "STOCKED_BY", "ID_STRAIN", "CLADE")
+    default_cols <- c("yjs_number", "sample_name", "species", "mating_type",
+              "box_number", "box_row", "box_col",
+              "plate", "plate_row", "plate_col",
+              "stocked_by", "id_strain", "clade")
 
     browse_data <- reactiveVal(NULL)
     col_panel_visible <- reactiveVal(FALSE)
 
     load_data <- function() {
       query <- "
-        SELECT y.*,
-               s.ISOLATION, s.ECO_ORIGIN AS STRAIN_ECO_ORIGIN,
-               s.GEO_ORIGIN, s.CONTINENT, s.COUNTRY, s.CLADE,
-               s.SRR_ID, s.SPECIES AS STRAIN_SPECIES
-        FROM YJSnumbers y
-        LEFT JOIN Strains s ON y.ID_STRAIN = s.STRAIN
+        SELECT y.yjs_number,
+               y.sample_name,
+               y.species AS species,
+               y.mating_type,
+               y.ploidy,
+               y.collection,
+               y.box_number,
+               y.box_row,
+               y.box_col,
+               y.plate,
+               y.plate_row,
+               y.plate_col,
+               y.stocked_by,
+               y.id_strain,
+               s.isolation,
+               s.eco_origin,
+               s.geo_origin,
+               s.continent,
+               s.country,
+               s.clade,
+               s.srr_id,
+               s.species AS strain_species
+        FROM yjs_numbers y
+        LEFT JOIN strains s ON y.id_strain = s.strain
       "
-      df <- DBI::dbGetQuery(main_conn, query)
+      df <- DBI::dbGetQuery(db_conn, query)
       browse_data(df)
     }
 
@@ -140,9 +158,9 @@ browse_server <- function(id, main_conn, user_info) {
       req(browse_data())
       df <- browse_data()
       if (isTRUE(input$sample_toggle)) {
-        df[grepl("^XTRA", df$YJS_NUMBER), , drop = FALSE]
+        df[grepl("^XTRA", df$yjs_number), , drop = FALSE]
       } else {
-        df[grepl("^YJS", df$YJS_NUMBER), , drop = FALSE]
+        df[grepl("^YJS", df$yjs_number), , drop = FALSE]
       }
     })
 
@@ -163,7 +181,7 @@ browse_server <- function(id, main_conn, user_info) {
       req(display_data())
       df <- display_data()
       cols <- names(df)
-      for (sc in c("SPECIES", "STRAIN_SPECIES")) {
+      for (sc in c("species", "strain_species")) {
         if (sc %in% cols) {
           df[[sc]] <- ifelse(
             is.na(df[[sc]]) | df[[sc]] == "",
@@ -174,7 +192,7 @@ browse_server <- function(id, main_conn, user_info) {
       }
       num_cols <- names(df)[sapply(df, is.numeric)]
       for (col in num_cols) df[[col]] <- as.character(df[[col]])
-      species_col_idx <- which(cols %in% c("SPECIES", "STRAIN_SPECIES"))
+      species_col_idx <- which(cols %in% c("species", "strain_species"))
       DT::datatable(
         df,
         filter = "top",

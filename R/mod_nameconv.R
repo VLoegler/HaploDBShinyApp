@@ -1,11 +1,11 @@
 #' Name Conversion Module
 #'
-#' Unified search across YJSnumbers, Strains, AltYJS, and AltNames tables.
+#' Unified search across YJSnumbers, Strains, alt_yjs, and alt_names tables.
 #' Exact match for YJS numbers and Strain IDs, fuzzy match for names.
 #' Results displayed in tabbed layout with inline expandable detail rows.
 #'
 #' @param id Module namespace ID
-#' @param main_conn Main SQLite DB connection
+#' @param main_conn DB connection
 
 nameconv_ui <- function(id) {
   ns <- NS(id)
@@ -79,7 +79,7 @@ nameconv_ui <- function(id) {
   )
 }
 
-nameconv_server <- function(id, main_conn, user_info) {
+nameconv_server <- function(id, db_conn, user_info) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -91,7 +91,10 @@ nameconv_server <- function(id, main_conn, user_info) {
         search_data(NULL)
         return()
       }
-      search_data(collect_search_results(main_conn, query_val))
+      t0 <- Sys.time()
+      result <- collect_search_results(db_conn, query_val)
+      message("TOTAL SEARCH TIME: ", round(as.numeric(difftime(Sys.time(), t0, units = "secs")), 3), " sec")
+      search_data(result)
     })
 
     output$results <- renderUI({
@@ -193,12 +196,12 @@ build_strain_dt <- function(strains_df) {
   # Prepend empty column for expand toggle
   df <- cbind(` ` = rep("", nrow(strains_df)), strains_df)
 
-  # Visible: toggle, STRAIN, SPECIES, CLADE, ECO_ORIGIN, COUNTRY, Match Source
-  # Hidden: GEO_ORIGIN(7), CONTINENT(8), ISOLATION(9), SRR_ID(10),
-  #         ALT_NAMES(11), LINKED_YJS(12)
+  # Visible: toggle, strain, species, clade, eco_origin, country, Match Source
+  # Hidden: geo_origin(7), continent(8), isolation(9), srr_id(10),
+  #         alt_names(11), linked_yjs(12)
   hidden_cols <- which(names(df) %in%
-    c("GEO_ORIGIN", "CONTINENT", "ISOLATION", "SRR_ID",
-      "ALT_NAMES", "LINKED_YJS")) - 1  # 0-indexed
+    c("geo_origin", "continent", "isolation", "srr_id",
+      "alt_names", "linked_yjs")) - 1  # 0-indexed
 
   format_fn <- paste0(
     "function(d) {",
@@ -250,16 +253,16 @@ build_strain_dt <- function(strains_df) {
 build_sample_dt <- function(samples_df) {
   df <- cbind(` ` = rep("", nrow(samples_df)), samples_df)
 
-  # Visible: toggle, YJS_NUMBER, SAMPLE_NAME, SPECIES, ID_STRAIN,
-  #          SAMPLE_TYPE, PLOIDY, Match Source
-  # Hidden: MATING_TYPE(8), STRAINS_GROUP(9), GENOTYPE(10),
-  #         COLLECTION(11), OLD_YJS(12), STRAIN_SPECIES(13),
-  #         CLADE(14), ECO_ORIGIN(15), GEO_ORIGIN(16),
-  #         COUNTRY(17), ISOLATION(18), ALT_NAMES(19)
+  # Visible: toggle, yjs_number, sample_name, species, id_strain,
+  #          sample_type, ploidy, Match Source
+  # Hidden: mating_type(8), strains_group(9), genotype(10),
+  #         collection(11), old_yjs(12), strain_species(13),
+  #         clade(14), eco_origin(15), geo_origin(16),
+  #         country(17), isolation(18), alt_names(19)
   hidden_cols <- which(names(df) %in%
-    c("MATING_TYPE", "STRAINS_GROUP", "GENOTYPE", "COLLECTION",
-      "OLD_YJS", "STRAIN_SPECIES", "CLADE", "ECO_ORIGIN",
-      "GEO_ORIGIN", "COUNTRY", "ISOLATION", "ALT_NAMES")) - 1
+    c("mating_type", "strains_group", "genotype", "collection",
+      "old_yjs", "strain_species", "clade", "eco_origin",
+      "geo_origin", "country", "isolation", "alt_names")) - 1
 
   format_fn <- paste0(
     "function(d) {",
@@ -330,25 +333,25 @@ classify_input <- function(query) {
 empty_result <- function(query) {
   list(
     strains = data.frame(
-      STRAIN = character(0), SPECIES = character(0),
-      CLADE = character(0), ECO_ORIGIN = character(0),
-      COUNTRY = character(0), `Match Source` = character(0),
-      GEO_ORIGIN = character(0), CONTINENT = character(0),
-      ISOLATION = character(0), SRR_ID = character(0),
-      ALT_NAMES = character(0), LINKED_YJS = character(0),
+      strain = character(0), species = character(0),
+      clade = character(0), eco_origin = character(0),
+      country = character(0), `Match Source` = character(0),
+      geo_origin = character(0), continent = character(0),
+      isolation = character(0), srr_id = character(0),
+      alt_names = character(0), linked_yjs = character(0),
       check.names = FALSE, stringsAsFactors = FALSE
     ),
     samples = data.frame(
-      YJS_NUMBER = character(0), SAMPLE_NAME = character(0),
-      SPECIES = character(0), ID_STRAIN = character(0),
-      SAMPLE_TYPE = character(0), PLOIDY = character(0),
+      yjs_number = character(0), sample_name = character(0),
+      species = character(0), id_strain = character(0),
+      sample_type = character(0), ploidy = character(0),
       `Match Source` = character(0),
-      MATING_TYPE = character(0), STRAINS_GROUP = character(0),
-      GENOTYPE = character(0), COLLECTION = character(0),
-      OLD_YJS = character(0), STRAIN_SPECIES = character(0),
-      CLADE = character(0), ECO_ORIGIN = character(0),
-      GEO_ORIGIN = character(0), COUNTRY = character(0),
-      ISOLATION = character(0), ALT_NAMES = character(0),
+      mating_type = character(0), strains_group = character(0),
+      genotype = character(0), collection = character(0),
+      old_yjs = character(0), strain_species = character(0),
+      clade = character(0), eco_origin = character(0),
+      geo_origin = character(0), country = character(0),
+      isolation = character(0), alt_names = character(0),
       check.names = FALSE, stringsAsFactors = FALSE
     ),
     alerts = list(),
@@ -358,28 +361,28 @@ empty_result <- function(query) {
 }
 
 # --- Main search dispatcher (returns structured data) ---
-collect_search_results <- function(main_conn, query) {
+collect_search_results <- function(db_conn, query) {
   input_type <- classify_input(query)
   result <- empty_result(query)
 
   if (input_type == "yjs") {
-    result <- search_yjs_exact(main_conn, query, result)
+    result <- search_yjs_exact(db_conn, query, result)
   } else if (input_type == "strain") {
-    result <- search_strain_exact(main_conn, query, result)
+    result <- search_strain_exact(db_conn, query, result)
   }
 
   if (nrow(result$strains) == 0 && nrow(result$samples) == 0) {
-    result <- search_fuzzy(main_conn, query, result)
+    result <- search_fuzzy(db_conn, query, result)
   }
 
   result
 }
 
 # --- Exact YJS search ---
-search_yjs_exact <- function(main_conn, query, result) {
+search_yjs_exact <- function(db_conn, query, result) {
   q_upper <- toupper(trimws(query))
 
-  yjs_data <- collect_yjs_data(main_conn, q_upper)
+  yjs_data <- collect_yjs_data(db_conn, q_upper)
   if (!is.null(yjs_data)) {
     result$samples <- rbind(result$samples, yjs_data$sample)
     if (!is.null(yjs_data$strain)) {
@@ -388,17 +391,17 @@ search_yjs_exact <- function(main_conn, query, result) {
     return(result)
   }
 
-  redirect <- DBI::dbGetQuery(main_conn,
-    "SELECT YJS_NUMBER FROM AltYJS WHERE OLD_YJS_NUMBER = ?",
+  redirect <- DBI::dbGetQuery(db_conn,
+    "SELECT yjs_number FROM alt_yjs WHERE old_yjs_number = $1",
     params = list(q_upper)
   )
   if (nrow(redirect) > 0) {
-    current_yjs <- redirect$YJS_NUMBER[1]
+    current_yjs <- redirect$yjs_number[1]
     result$alerts <- c(result$alerts, list(
       paste0("Redirected from old YJS number ", q_upper,
              " \u2192 ", current_yjs)
     ))
-    yjs_data <- collect_yjs_data(main_conn, current_yjs)
+    yjs_data <- collect_yjs_data(db_conn, current_yjs)
     if (!is.null(yjs_data)) {
       result$samples <- rbind(result$samples, yjs_data$sample)
       if (!is.null(yjs_data$strain)) {
@@ -411,10 +414,10 @@ search_yjs_exact <- function(main_conn, query, result) {
 }
 
 # --- Exact Strain search ---
-search_strain_exact <- function(main_conn, query, result) {
+search_strain_exact <- function(db_conn, query, result) {
   q_upper <- toupper(trimws(query))
 
-  strain_data <- collect_strain_data(main_conn, q_upper, "Exact match")
+  strain_data <- collect_strain_data(db_conn, q_upper, "Exact match")
   if (!is.null(strain_data)) {
     result$strains <- rbind(result$strains, strain_data$strain)
     if (nrow(strain_data$samples) > 0) {
@@ -423,18 +426,18 @@ search_strain_exact <- function(main_conn, query, result) {
     return(result)
   }
 
-  alt_hit <- DBI::dbGetQuery(main_conn,
-    "SELECT STRAIN FROM AltNames WHERE UPPER(ALT_NAME) = ?",
+  alt_hit <- DBI::dbGetQuery(db_conn,
+    "SELECT strain FROM alt_names WHERE UPPER(alt_name) = $1",
     params = list(q_upper)
   )
   if (nrow(alt_hit) > 0) {
-    resolved_strain <- alt_hit$STRAIN[1]
+    resolved_strain <- alt_hit$strain[1]
     result$alerts <- c(result$alerts, list(
       paste0("Found via alternative name '", q_upper,
              "' for strain ", resolved_strain)
     ))
     strain_data <- collect_strain_data(
-      main_conn, resolved_strain, "Via alt name"
+      db_conn, resolved_strain, "Via alt name"
     )
     if (!is.null(strain_data)) {
       result$strains <- rbind(result$strains, strain_data$strain)
@@ -448,32 +451,33 @@ search_strain_exact <- function(main_conn, query, result) {
 }
 
 # --- Fuzzy search ---
-search_fuzzy <- function(main_conn, query, result) {
+search_fuzzy <- function(db_conn, query, result) {
   norm_query <- normalize_str(query)
   if (nchar(norm_query) == 0) return(result)
 
   max_results <- 50
   total_count <- 0
 
-  # Fuzzy on YJSnumbers.SAMPLE_NAME
-  yjs_all <- DBI::dbGetQuery(main_conn,
-    "SELECT YJS_NUMBER, SAMPLE_NAME FROM YJSnumbers
-     WHERE SAMPLE_NAME IS NOT NULL AND SAMPLE_NAME != ''"
+  # Fuzzy on YJSnumbers.sample_name
+  yjs_all <- DBI::dbGetQuery(db_conn,
+    "SELECT yjs_number, sample_name FROM yjs_numbers
+     WHERE sample_name IS NOT NULL AND sample_name != ''"
   )
   if (nrow(yjs_all) > 0) {
-    yjs_all$norm <- normalize_str(yjs_all$SAMPLE_NAME)
+    names(yjs_all) <- c("yjs_number", "sample_name")
+    yjs_all$norm <- normalize_str(yjs_all$sample_name)
     hits <- yjs_all[grepl(norm_query, yjs_all$norm, fixed = TRUE),
                     , drop = FALSE]
     for (i in seq_len(min(nrow(hits), max_results - total_count))) {
       yjs_data <- collect_yjs_data(
-        main_conn, hits$YJS_NUMBER[i],
+        db_conn, hits$yjs_number[i],
         match_source = paste0("Sample name '",
-                              hits$SAMPLE_NAME[i], "'")
+                              hits$sample_name[i], "'")
       )
       if (!is.null(yjs_data)) {
         result$samples <- rbind(result$samples, yjs_data$sample)
         if (!is.null(yjs_data$strain)) {
-          if (!yjs_data$strain$STRAIN %in% result$strains$STRAIN) {
+          if (!yjs_data$strain$strain %in% result$strains$strain) {
             result$strains <- rbind(result$strains, yjs_data$strain)
           }
         }
@@ -482,28 +486,29 @@ search_fuzzy <- function(main_conn, query, result) {
     }
   }
 
-  # Fuzzy on Strains.STRAIN
+  # Fuzzy on Strains.strain
   if (total_count < max_results) {
-    strains_all <- DBI::dbGetQuery(main_conn,
-      "SELECT STRAIN FROM Strains"
+    strains_all <- DBI::dbGetQuery(db_conn,
+      "SELECT strain FROM strains"
     )
     if (nrow(strains_all) > 0) {
-      strains_all$norm <- normalize_str(strains_all$STRAIN)
+      names(strains_all) <- "strain"
+      strains_all$norm <- normalize_str(strains_all$strain)
       hits <- strains_all[grepl(norm_query, strains_all$norm,
                                 fixed = TRUE), , drop = FALSE]
       for (i in seq_len(min(nrow(hits),
                             max_results - total_count))) {
-        if (!hits$STRAIN[i] %in% result$strains$STRAIN) {
+        if (!hits$strain[i] %in% result$strains$strain) {
           strain_data <- collect_strain_data(
-            main_conn, hits$STRAIN[i],
-            paste0("Strain ID '", hits$STRAIN[i], "'")
+            db_conn, hits$strain[i],
+            paste0("Strain ID '", hits$strain[i], "'")
           )
           if (!is.null(strain_data)) {
             result$strains <- rbind(result$strains,
                                     strain_data$strain)
             new_samples <- strain_data$samples[
-              !strain_data$samples$YJS_NUMBER %in%
-                result$samples$YJS_NUMBER, , drop = FALSE]
+              !strain_data$samples$yjs_number %in%
+                result$samples$yjs_number, , drop = FALSE]
             if (nrow(new_samples) > 0) {
               result$samples <- rbind(result$samples, new_samples)
             }
@@ -514,29 +519,29 @@ search_fuzzy <- function(main_conn, query, result) {
     }
   }
 
-  # Fuzzy on AltNames.ALT_NAME
+  # Fuzzy on alt_names.alt_name
   if (total_count < max_results) {
-    alt_all <- DBI::dbGetQuery(main_conn,
-      "SELECT STRAIN, ALT_NAME FROM AltNames"
+    alt_all <- DBI::dbGetQuery(db_conn,
+      "SELECT strain, alt_name FROM alt_names"
     )
     if (nrow(alt_all) > 0) {
-      alt_all$norm <- normalize_str(alt_all$ALT_NAME)
+      alt_all$norm <- normalize_str(alt_all$alt_name)
       hits <- alt_all[grepl(norm_query, alt_all$norm, fixed = TRUE),
                       , drop = FALSE]
       for (i in seq_len(nrow(hits))) {
         if (total_count >= max_results) break
-        strain_id <- hits$STRAIN[i]
-        if (strain_id %in% result$strains$STRAIN) next
+        strain_id <- hits$strain[i]
+        if (strain_id %in% result$strains$strain) next
         strain_data <- collect_strain_data(
-          main_conn, strain_id,
-          paste0("Alt name '", hits$ALT_NAME[i], "'")
+          db_conn, strain_id,
+          paste0("Alt name '", hits$alt_name[i], "'")
         )
         if (!is.null(strain_data)) {
           result$strains <- rbind(result$strains,
                                   strain_data$strain)
           new_samples <- strain_data$samples[
-            !strain_data$samples$YJS_NUMBER %in%
-              result$samples$YJS_NUMBER, , drop = FALSE]
+            !strain_data$samples$yjs_number %in%
+              result$samples$yjs_number, , drop = FALSE]
           if (nrow(new_samples) > 0) {
             result$samples <- rbind(result$samples, new_samples)
           }
@@ -560,18 +565,18 @@ search_fuzzy <- function(main_conn, query, result) {
 }
 
 # --- Collect data for a single YJS number ---
-collect_yjs_data <- function(main_conn, yjs_number,
+collect_yjs_data <- function(db_conn, yjs_number,
                              match_source = "Exact match") {
-  yjs_row <- DBI::dbGetQuery(main_conn,
-    "SELECT y.YJS_NUMBER, y.SAMPLE_NAME, y.SPECIES, y.ID_STRAIN,
-            y.SAMPLE_TYPE, y.PLOIDY, y.MATING_TYPE,
-            y.STRAINS_GROUP, y.GENOTYPE, y.COLLECTION,
-            s.STRAIN, s.SPECIES AS STRAIN_SPECIES, s.CLADE,
-            s.ECO_ORIGIN, s.GEO_ORIGIN, s.CONTINENT, s.COUNTRY,
-            s.ISOLATION, s.SRR_ID
-     FROM YJSnumbers y
-     LEFT JOIN Strains s ON y.ID_STRAIN = s.STRAIN
-     WHERE y.YJS_NUMBER = ?",
+  yjs_row <- DBI::dbGetQuery(db_conn,
+    "SELECT y.yjs_number, y.sample_name, y.species AS species, y.id_strain,
+            y.sample_type, y.ploidy, y.mating_type,
+            y.strains_group, y.genotype, y.collection,
+            s.strain, s.species AS strain_species, s.clade,
+            s.eco_origin, s.geo_origin, s.continent, s.country,
+            s.isolation, s.srr_id
+     FROM yjs_numbers y
+     LEFT JOIN strains s ON y.id_strain = s.strain
+     WHERE y.yjs_number = $1",
     params = list(yjs_number)
   )
   if (nrow(yjs_row) == 0) return(NULL)
@@ -579,76 +584,76 @@ collect_yjs_data <- function(main_conn, yjs_number,
   row <- yjs_row[1, ]
 
   # Alt YJS numbers
-  alt_yjs <- DBI::dbGetQuery(main_conn,
-    "SELECT OLD_YJS_NUMBER FROM AltYJS WHERE YJS_NUMBER = ?",
+  alt_yjs <- DBI::dbGetQuery(db_conn,
+    "SELECT old_yjs_number FROM alt_yjs WHERE yjs_number = $1",
     params = list(yjs_number)
   )
   old_yjs_str <- if (nrow(alt_yjs) > 0) {
-    paste(alt_yjs$OLD_YJS_NUMBER, collapse = ", ")
+    paste(alt_yjs$old_yjs_number, collapse = ", ")
   } else ""
 
   # Alt names for the linked strain
   alt_names_str <- ""
-  strain_id <- row$ID_STRAIN
+  strain_id <- row$id_strain
   if (!is.na(strain_id) && nchar(as.character(strain_id)) > 0) {
-    alt_names <- DBI::dbGetQuery(main_conn,
-      "SELECT ALT_NAME FROM AltNames WHERE STRAIN = ?",
+    alt_names <- DBI::dbGetQuery(db_conn,
+      "SELECT alt_name FROM alt_names WHERE strain = $1",
       params = list(strain_id)
     )
     if (nrow(alt_names) > 0) {
-      alt_names_str <- paste(alt_names$ALT_NAME, collapse = ", ")
+      alt_names_str <- paste(alt_names$alt_name, collapse = ", ")
     }
   }
 
   # Column order must match empty_result()$samples and JS indices
   sample_df <- data.frame(
-    YJS_NUMBER = row$YJS_NUMBER,
-    SAMPLE_NAME = na_to_empty(row$SAMPLE_NAME),
-    SPECIES = na_to_empty(row$SPECIES),
-    ID_STRAIN = na_to_empty(row$ID_STRAIN),
-    SAMPLE_TYPE = na_to_empty(row$SAMPLE_TYPE),
-    PLOIDY = na_to_empty(row$PLOIDY),
+    yjs_number = row$yjs_number,
+    sample_name = na_to_empty(row$sample_name),
+    species = na_to_empty(row$species),
+    id_strain = na_to_empty(row$id_strain),
+    sample_type = na_to_empty(row$sample_type),
+    ploidy = na_to_empty(row$ploidy),
     `Match Source` = match_source,
-    MATING_TYPE = na_to_empty(row$MATING_TYPE),
-    STRAINS_GROUP = na_to_empty(row$STRAINS_GROUP),
-    GENOTYPE = na_to_empty(row$GENOTYPE),
-    COLLECTION = na_to_empty(row$COLLECTION),
-    OLD_YJS = old_yjs_str,
-    STRAIN_SPECIES = na_to_empty(row$STRAIN_SPECIES),
-    CLADE = na_to_empty(row$CLADE),
-    ECO_ORIGIN = na_to_empty(row$ECO_ORIGIN),
-    GEO_ORIGIN = na_to_empty(row$GEO_ORIGIN),
-    COUNTRY = na_to_empty(row$COUNTRY),
-    ISOLATION = na_to_empty(row$ISOLATION),
-    ALT_NAMES = alt_names_str,
+    mating_type = na_to_empty(row$mating_type),
+    strains_group = na_to_empty(row$strains_group),
+    genotype = na_to_empty(row$genotype),
+    collection = na_to_empty(row$collection),
+    old_yjs = old_yjs_str,
+    strain_species = na_to_empty(row$strain_species),
+    clade = na_to_empty(row$clade),
+    eco_origin = na_to_empty(row$eco_origin),
+    geo_origin = na_to_empty(row$geo_origin),
+    country = na_to_empty(row$country),
+    isolation = na_to_empty(row$isolation),
+    alt_names = alt_names_str,
     stringsAsFactors = FALSE, check.names = FALSE
   )
 
   strain_df <- NULL
-  if (!is.na(row$STRAIN) && nchar(as.character(row$STRAIN)) > 0) {
+  if (!is.na(row$strain) && nchar(as.character(row$strain)) > 0) {
     # Linked YJS for strain
-    linked_yjs <- DBI::dbGetQuery(main_conn,
-      "SELECT YJS_NUMBER FROM YJSnumbers WHERE ID_STRAIN = ?",
-      params = list(row$STRAIN)
+    linked_yjs <- DBI::dbGetQuery(db_conn,
+      "SELECT yjs_number FROM yjs_numbers WHERE id_strain = $1",
+      params = list(row$strain)
     )
     linked_str <- if (nrow(linked_yjs) > 0) {
-      paste(linked_yjs$YJS_NUMBER, collapse = ", ")
+      paste(linked_yjs$yjs_number, collapse = ", ")
     } else ""
 
     # Column order must match empty_result()$strains and JS indices
     strain_df <- data.frame(
-      STRAIN = row$STRAIN,
-      SPECIES = na_to_empty(row$STRAIN_SPECIES),
-      CLADE = na_to_empty(row$CLADE),
-      ECO_ORIGIN = na_to_empty(row$ECO_ORIGIN),
-      COUNTRY = na_to_empty(row$COUNTRY),
+      strain = row$strain,
+      species = na_to_empty(row$strain_species),
+      clade = na_to_empty(row$clade),
+      eco_origin = na_to_empty(row$eco_origin),
+      country = na_to_empty(row$country),
       `Match Source` = match_source,
-      GEO_ORIGIN = na_to_empty(row$GEO_ORIGIN),
-      CONTINENT = na_to_empty(row$CONTINENT),
-      ISOLATION = na_to_empty(row$ISOLATION),
-      SRR_ID = na_to_empty(row$SRR_ID),
-      ALT_NAMES = alt_names_str,
-      LINKED_YJS = linked_str,
+      geo_origin = na_to_empty(row$geo_origin),
+      continent = na_to_empty(row$continent),
+      isolation = na_to_empty(row$isolation),
+      srr_id = na_to_empty(row$srr_id),
+      alt_names = alt_names_str,
+      linked_yjs = linked_str,
       stringsAsFactors = FALSE, check.names = FALSE
     )
   }
@@ -657,54 +662,57 @@ collect_yjs_data <- function(main_conn, yjs_number,
 }
 
 # --- Collect data for a single Strain ---
-collect_strain_data <- function(main_conn, strain_id,
+collect_strain_data <- function(db_conn, strain_id,
                                 match_source = "Exact match") {
-  strain_row <- DBI::dbGetQuery(main_conn,
-    "SELECT * FROM Strains WHERE STRAIN = ?",
+  strain_row <- DBI::dbGetQuery(db_conn,
+    "SELECT strain, isolation, eco_origin,
+            geo_origin, continent, country,
+            clade, srr_id, species
+     FROM strains WHERE strain = $1",
     params = list(strain_id)
   )
   if (nrow(strain_row) == 0) return(NULL)
 
   sr <- strain_row[1, ]
 
-  alt_names <- DBI::dbGetQuery(main_conn,
-    "SELECT ALT_NAME FROM AltNames WHERE STRAIN = ?",
+  alt_names <- DBI::dbGetQuery(db_conn,
+    "SELECT alt_name FROM alt_names WHERE strain = $1",
     params = list(strain_id)
   )
   alt_names_str <- if (nrow(alt_names) > 0) {
-    paste(alt_names$ALT_NAME, collapse = ", ")
+    paste(alt_names$alt_name, collapse = ", ")
   } else ""
 
-  linked_yjs <- DBI::dbGetQuery(main_conn,
-    "SELECT YJS_NUMBER FROM YJSnumbers WHERE ID_STRAIN = ?",
+  linked_yjs <- DBI::dbGetQuery(db_conn,
+    "SELECT yjs_number FROM yjs_numbers WHERE id_strain = $1",
     params = list(strain_id)
   )
   linked_str <- if (nrow(linked_yjs) > 0) {
-    paste(linked_yjs$YJS_NUMBER, collapse = ", ")
+    paste(linked_yjs$yjs_number, collapse = ", ")
   } else ""
 
   strain_df <- data.frame(
-    STRAIN = sr$STRAIN,
-    SPECIES = na_to_empty(sr$SPECIES),
-    CLADE = na_to_empty(sr$CLADE),
-    ECO_ORIGIN = na_to_empty(sr$ECO_ORIGIN),
-    COUNTRY = na_to_empty(sr$COUNTRY),
+    strain = sr$strain,
+    species = na_to_empty(sr$species),
+    clade = na_to_empty(sr$clade),
+    eco_origin = na_to_empty(sr$eco_origin),
+    country = na_to_empty(sr$country),
     `Match Source` = match_source,
-    GEO_ORIGIN = na_to_empty(sr$GEO_ORIGIN),
-    CONTINENT = na_to_empty(sr$CONTINENT),
-    ISOLATION = na_to_empty(sr$ISOLATION),
-    SRR_ID = na_to_empty(sr$SRR_ID),
-    ALT_NAMES = alt_names_str,
-    LINKED_YJS = linked_str,
+    geo_origin = na_to_empty(sr$geo_origin),
+    continent = na_to_empty(sr$continent),
+    isolation = na_to_empty(sr$isolation),
+    srr_id = na_to_empty(sr$srr_id),
+    alt_names = alt_names_str,
+    linked_yjs = linked_str,
     stringsAsFactors = FALSE, check.names = FALSE
   )
 
   # Linked samples with enriched detail columns
-  yjs_rows <- DBI::dbGetQuery(main_conn,
-    "SELECT YJS_NUMBER, SAMPLE_NAME, SPECIES, ID_STRAIN,
-            SAMPLE_TYPE, PLOIDY, MATING_TYPE,
-            STRAINS_GROUP, GENOTYPE, COLLECTION
-     FROM YJSnumbers WHERE ID_STRAIN = ?",
+  yjs_rows <- DBI::dbGetQuery(db_conn,
+    "SELECT yjs_number, sample_name, species, id_strain,
+            sample_type, ploidy, mating_type,
+            strains_group, genotype, collection
+     FROM yjs_numbers WHERE id_strain = $1",
     params = list(strain_id)
   )
 
@@ -713,31 +721,31 @@ collect_strain_data <- function(main_conn, strain_id,
     yjs_rows$`Match Source` <- paste0("Strain ", strain_id)
 
     # Add alt YJS for each sample
-    yjs_rows$OLD_YJS <- ""
+    yjs_rows$old_yjs <- ""
     if (nrow(yjs_rows) > 0) {
-      old_yjs_map <- get_old_yjs_map(main_conn, yjs_rows$YJS_NUMBER)
-      yjs_rows$OLD_YJS <- unname(
-        old_yjs_map[yjs_rows$YJS_NUMBER]
+      old_yjs_map <- get_old_yjs_map(db_conn, yjs_rows$yjs_number)
+      yjs_rows$old_yjs <- unname(
+        old_yjs_map[yjs_rows$yjs_number]
       )
-      yjs_rows$OLD_YJS[is.na(yjs_rows$OLD_YJS)] <- ""
+      yjs_rows$old_yjs[is.na(yjs_rows$old_yjs)] <- ""
     }
 
     # Add strain detail columns for child row display
-    yjs_rows$STRAIN_SPECIES <- na_to_empty(sr$SPECIES)
-    yjs_rows$CLADE <- na_to_empty(sr$CLADE)
-    yjs_rows$ECO_ORIGIN <- na_to_empty(sr$ECO_ORIGIN)
-    yjs_rows$GEO_ORIGIN <- na_to_empty(sr$GEO_ORIGIN)
-    yjs_rows$COUNTRY <- na_to_empty(sr$COUNTRY)
-    yjs_rows$ISOLATION <- na_to_empty(sr$ISOLATION)
-    yjs_rows$ALT_NAMES <- alt_names_str
+    yjs_rows$strain_species <- na_to_empty(sr$species)
+    yjs_rows$clade <- na_to_empty(sr$clade)
+    yjs_rows$eco_origin <- na_to_empty(sr$eco_origin)
+    yjs_rows$geo_origin <- na_to_empty(sr$geo_origin)
+    yjs_rows$country <- na_to_empty(sr$country)
+    yjs_rows$isolation <- na_to_empty(sr$isolation)
+    yjs_rows$alt_names <- alt_names_str
 
     # Reorder to match expected column order
     samples_df <- yjs_rows[, c(
-      "YJS_NUMBER", "SAMPLE_NAME", "SPECIES", "ID_STRAIN",
-      "SAMPLE_TYPE", "PLOIDY", "Match Source",
-      "MATING_TYPE", "STRAINS_GROUP", "GENOTYPE", "COLLECTION",
-      "OLD_YJS", "STRAIN_SPECIES", "CLADE", "ECO_ORIGIN",
-      "GEO_ORIGIN", "COUNTRY", "ISOLATION", "ALT_NAMES"
+      "yjs_number", "sample_name", "species", "id_strain",
+      "sample_type", "ploidy", "Match Source",
+      "mating_type", "strains_group", "genotype", "collection",
+      "old_yjs", "strain_species", "clade", "eco_origin",
+      "geo_origin", "country", "isolation", "alt_names"
     ), drop = FALSE]
   } else {
     samples_df <- empty_result("")$samples
@@ -752,27 +760,26 @@ na_to_empty <- function(x) {
   if (is.null(x) || is.na(x)) "" else as.character(x)
 }
 
-get_old_yjs_map <- function(main_conn, yjs_numbers) {
+get_old_yjs_map <- function(db_conn, yjs_numbers) {
   if (length(yjs_numbers) == 0) return(character(0))
-  placeholders <- paste(rep("?", length(yjs_numbers)),
-                        collapse = ", ")
-  alt_yjs <- DBI::dbGetQuery(main_conn,
-    paste0("SELECT YJS_NUMBER, OLD_YJS_NUMBER FROM AltYJS ",
-           "WHERE YJS_NUMBER IN (", placeholders, ")"),
+  placeholders <- paste0("$", seq_along(yjs_numbers), collapse = ", ")
+  alt_yjs <- DBI::dbGetQuery(db_conn,
+    paste0("SELECT yjs_number, old_yjs_number FROM alt_yjs ",
+           "WHERE yjs_number IN (", placeholders, ")"),
     params = as.list(yjs_numbers)
   )
   if (nrow(alt_yjs) > 0) {
-    tapply(alt_yjs$OLD_YJS_NUMBER, alt_yjs$YJS_NUMBER,
+    tapply(alt_yjs$old_yjs_number, alt_yjs$yjs_number,
            paste, collapse = ", ")
   } else {
     stats::setNames(rep("", length(yjs_numbers)), yjs_numbers)
   }
 }
 
-add_old_yjs_column <- function(yjs_df, main_conn) {
+add_old_yjs_column <- function(yjs_df, db_conn) {
   if (nrow(yjs_df) == 0) return(yjs_df)
-  old_map <- get_old_yjs_map(main_conn, yjs_df$YJS_NUMBER)
-  yjs_df$Old_YJS <- unname(old_map[yjs_df$YJS_NUMBER])
-  yjs_df$Old_YJS[is.na(yjs_df$Old_YJS)] <- ""
+  old_map <- get_old_yjs_map(db_conn, yjs_df$yjs_number)
+  yjs_df$old_yjs <- unname(old_map[yjs_df$yjs_number])
+  yjs_df$old_yjs[is.na(yjs_df$old_yjs)] <- ""
   yjs_df
 }

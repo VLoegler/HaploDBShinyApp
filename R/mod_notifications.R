@@ -31,7 +31,7 @@ notifications_ui <- function(id) {
   )
 }
 
-notifications_server <- function(id, main_conn, pending_conn, user_info, active_tab) {
+notifications_server <- function(id, db_conn, user_info, active_tab) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -72,45 +72,45 @@ notifications_server <- function(id, main_conn, pending_conn, user_info, active_
       username <- user_info()$username
 
       pending_yjs <- tryCatch(
-        coerce_subs(DBI::dbGetQuery(pending_conn,
-          "SELECT SAMPLE_NAME AS name, 'YJS Sample' AS type, 'pending' AS status,
-                  submitted_at, '' AS assigned_number, '' AS reviewer,
-                  CAST(BOX_NUMBER AS TEXT) AS box,
-                  CAST(BOX_ROW AS TEXT) AS box_row,
-                  CAST(BOX_COL AS TEXT) AS box_col,
-                  CAST(PLATE AS TEXT) AS plate,
-                  CAST(PLATE_ROW AS TEXT) AS plate_row,
-                  CAST(PLATE_COL AS TEXT) AS plate_col,
-                  '1' AS is_read
-           FROM pending_yjs WHERE submitted_by = ?",
+        coerce_subs(DBI::dbGetQuery(db_conn,
+          "SELECT sample_name name, 'YJS Sample' type, 'pending' status,
+                  submitted_at, '' assigned_number, '' reviewer,
+                  CAST(box_number AS TEXT) box,
+                  CAST(box_row AS TEXT) box_row,
+                  CAST(box_col AS TEXT) box_col,
+                  CAST(plate AS TEXT) plate,
+                  CAST(plate_row AS TEXT) plate_row,
+                  CAST(plate_col AS TEXT) plate_col,
+                  '1' is_read
+           FROM pending_yjs WHERE submitted_by = $1",
           params = list(username))),
         error = function(e) empty_subs()
       )
 
       pending_strains <- tryCatch(
-        coerce_subs(DBI::dbGetQuery(pending_conn,
-          "SELECT original_name AS name, 'Strain' AS type, 'pending' AS status,
-                  submitted_at, '' AS assigned_number, '' AS reviewer,
-                  '' AS box, '' AS box_row, '' AS box_col,
-                  '' AS plate, '' AS plate_row, '' AS plate_col,
-                  '1' AS is_read
-           FROM pending_strains WHERE submitted_by = ?",
+        coerce_subs(DBI::dbGetQuery(db_conn,
+          "SELECT original_name name, 'Strain' type, 'pending' status,
+                  submitted_at, '' assigned_number, '' reviewer,
+                  '' box, '' box_row, '' box_col,
+                  '' plate, '' plate_row, '' plate_col,
+                  '1' is_read
+           FROM pending_strains WHERE submitted_by = $1",
           params = list(username))),
         error = function(e) empty_subs()
       )
 
       resolved <- tryCatch(
-        coerce_subs(DBI::dbGetQuery(pending_conn,
-          "SELECT entry_name AS name, entry_type AS type, status,
-                  created_at AS submitted_at, assigned_number, reviewer,
-                  COALESCE(box, '') AS box,
-                  COALESCE(box_row, '') AS box_row,
-                  COALESCE(box_col, '') AS box_col,
-                  COALESCE(plate, '') AS plate,
-                  COALESCE(plate_row, '') AS plate_row,
-                  COALESCE(plate_col, '') AS plate_col,
-                  CAST(is_read AS TEXT) AS is_read
-           FROM notifications WHERE username = ?
+        coerce_subs(DBI::dbGetQuery(db_conn,
+          "SELECT entry_name name, entry_type type, status,
+                  created_at submitted_at, assigned_number, reviewer,
+                  COALESCE(box, '') box,
+                  COALESCE(box_row, '') box_row,
+                  COALESCE(box_col, '') box_col,
+                  COALESCE(plate, '') plate,
+                  COALESCE(plate_row, '') plate_row,
+                  COALESCE(plate_col, '') plate_col,
+                  CAST(is_read AS TEXT) is_read
+           FROM notifications WHERE username = $1
            ORDER BY created_at DESC",
           params = list(username))),
         error = function(e) empty_subs()
@@ -124,22 +124,24 @@ notifications_server <- function(id, main_conn, pending_conn, user_info, active_
                          (resolved$box == "" | is.na(resolved$box)))
         if (length(yjs_idx) > 0) {
           yjs_nums <- resolved$assigned_number[yjs_idx]
-          placeholders <- paste(rep("?", length(yjs_nums)), collapse = ",")
+          placeholders <- paste0("$", seq_along(yjs_nums), collapse = ",")
           loc <- tryCatch(
-            DBI::dbGetQuery(main_conn, sprintf(
-              "SELECT YJS_NUMBER,
-                      CAST(BOX_NUMBER AS TEXT) AS box,
-                      CAST(BOX_ROW AS TEXT) AS box_row,
-                      CAST(BOX_COL AS TEXT) AS box_col,
-                      CAST(PLATE AS TEXT) AS plate,
-                      CAST(PLATE_ROW AS TEXT) AS plate_row,
-                      CAST(PLATE_COL AS TEXT) AS plate_col
-               FROM YJSnumbers WHERE YJS_NUMBER IN (%s)", placeholders),
+            DBI::dbGetQuery(db_conn, sprintf(
+              "SELECT yjs_number,
+                      CAST(box_number AS TEXT) AS box,
+                      CAST(box_row AS TEXT) AS box_row,
+                      CAST(box_col AS TEXT) AS box_col,
+                      CAST(plate AS TEXT) AS plate,
+                      CAST(plate_row AS TEXT) AS plate_row,
+                      CAST(plate_col AS TEXT) AS plate_col
+               FROM yjs_numbers WHERE yjs_number IN (%s)", placeholders),
               params = as.list(yjs_nums)),
             error = function(e) data.frame()
           )
           if (nrow(loc) > 0) {
-            m <- match(resolved$assigned_number[yjs_idx], loc$YJS_NUMBER)
+            names(loc) <- c("yjs_number", "box", "box_row", "box_col",
+                            "plate", "plate_row", "plate_col")
+            m <- match(resolved$assigned_number[yjs_idx], loc$yjs_number)
             resolved$box[yjs_idx] <- ifelse(is.na(m), "", loc$box[m])
             resolved$box_row[yjs_idx] <- ifelse(is.na(m), "", loc$box_row[m])
             resolved$box_col[yjs_idx] <- ifelse(is.na(m), "", loc$box_col[m])
@@ -175,9 +177,9 @@ notifications_server <- function(id, main_conn, pending_conn, user_info, active_
       } else if (has_visited()) {
         username <- user_info()$username
         tryCatch(
-          DBI::dbExecute(pending_conn,
+          DBI::dbExecute(db_conn,
             "UPDATE notifications SET is_read = 1
-             WHERE username = ? AND is_read = 0",
+             WHERE username = $1 AND is_read = 0",
             params = list(username)),
           error = function(e) NULL
         )

@@ -7,12 +7,12 @@
 #'
 #' @param username Character string
 #' @param password Character string (plaintext)
-#' @param users_conn SQLite connection for users database
+#' @param db_conn Database connection
 #' @return A single-row data.frame with id, username, role if valid; NULL otherwise
-check_credentials <- function(username, password, users_conn) {
+check_credentials <- function(username, password, db_conn) {
   user <- DBI::dbGetQuery(
-    users_conn,
-    "SELECT id, username, password_hash, role FROM users WHERE username = ?",
+    db_conn,
+    "SELECT id, username, password_hash, role FROM users WHERE username = $1",
     params = list(username)
   )
 

@@ -293,7 +293,7 @@ CREATE TABLE IF NOT EXISTS notifications (
   status TEXT NOT NULL,
   reviewer TEXT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  is_read SMALLINT NOT NULL DEFAULT 0,
   box TEXT,
   box_row TEXT,
   box_col TEXT,
