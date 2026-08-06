@@ -3,25 +3,80 @@
 #' Helpers for Database connections (main DB, pending submissions, users).
 #' All database interactions go through parameterized queries.
 
-#' Seed default admin account if no admin exists
+#' Ensure the users table exists in the PostgreSQL database
+#'
+#' @param db_conn Database DBI connection
+#' @return The connection invisibly
+ensure_users_table <- function(db_conn) {
+  if (!DBI::dbExistsTable(db_conn, "users")) {
+    DBI::dbExecute(
+      db_conn,
+      "
+      CREATE TABLE IF NOT EXISTS users (
+        id BIGSERIAL PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'basic',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+      "
+    )
+  }
+
+  invisible(db_conn)
+}
+
+#' Seed the configured admin account from environment variables
+#'
+#' Reads MASTERADMIN and MASTERPWD from the environment (or .env when loaded).
+#' If a matching user already exists, it updates the password and grants admin role.
+#' Otherwise it creates a new admin user.
 #'
 #' @param db_conn Database DBI connection for users table
-#' @param admin_config List with username and password from config.yml
-seed_default_admin <- function(db_conn, admin_config) {
-  admin_count <- DBI::dbGetQuery(
-    db_conn,
-    "SELECT COUNT(*) AS n FROM users WHERE role = 'admin'"
-  )$n
+#' @param admin_config Optional list with username and password values
+seed_default_admin <- function(db_conn, admin_config = NULL) {
+  ensure_users_table(db_conn)
 
-  if (admin_count == 0) {
-    hashed <- sodium::password_store(as.character(admin_config$password))
+  if (is.null(admin_config)) {
+    admin_config <- list(
+      username = Sys.getenv("MASTERADMIN", unset = ""),
+      password = Sys.getenv("MASTERPWD", unset = "")
+    )
+  }
+
+  username <- as.character(admin_config$username)
+  password <- as.character(admin_config$password)
+
+  if (!nzchar(username) || !nzchar(password)) {
+    message("Skipping admin bootstrap: MASTERADMIN and MASTERPWD must be set")
+    return(invisible(NULL))
+  }
+
+  hashed <- sodium::password_store(password)
+
+  existing <- DBI::dbGetQuery(
+    db_conn,
+    "SELECT id FROM users WHERE username = $1",
+    params = list(username)
+  )
+
+  if (nrow(existing) == 0) {
     DBI::dbExecute(
       db_conn,
       "INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'admin')",
-      params = list(admin_config$username, hashed)
+      params = list(username, hashed)
     )
-    message("Default admin account created: ", admin_config$username)
+    message("Default admin account created: ", username)
+  } else {
+    DBI::dbExecute(
+      db_conn,
+      "UPDATE users SET password_hash = $1, role = 'admin' WHERE username = $2",
+      params = list(hashed, username)
+    )
+    message("Default admin account updated: ", username)
   }
+
+  invisible(NULL)
 }
 
 #' Get choices for a dynamic field (species, ploidy, mating_type)

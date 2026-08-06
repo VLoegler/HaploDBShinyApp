@@ -4,7 +4,6 @@ library(DT)
 library(DBI)
 library(RPostgres)
 library(sodium)
-library(config)
 library(dplyr)
 library(shinyjs)
 library(colourpicker)
@@ -15,9 +14,6 @@ if (file.exists(".env")) {
   dotenv::load_dot_env()
 }
 
-# Load configuration
-app_config <- config::get(file = "config.yml")
-
 # Database connection
 source("R/db_connection.R")
 main_conn <- create_postgres_conn()
@@ -27,8 +23,8 @@ print(system.time(
     "SELECT COUNT(*) FROM yjs_numbers"
   )
 ))
-# Seed admin
-seed_default_admin(main_conn, app_config$admin)
+# Seed admin from .env values
+seed_default_admin(main_conn)
 
 # Clean up on app stop
 onStop(function() {
