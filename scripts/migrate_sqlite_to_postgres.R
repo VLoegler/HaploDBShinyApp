@@ -101,6 +101,29 @@ db_version <- dbGetQuery(
 message("PostgreSQL version:")
 message(db_version$version[1])
 
+message("Loading PostgreSQL schema...")
+
+# ----------------------------------------------------------------------------
+# Build Schema on PostgreSQL DB
+# ----------------------------------------------------------------------------
+
+sql_text <- paste(
+  readLines("sql/postgresql_schema.sql", warn = FALSE),
+  collapse = "\n"
+)
+
+statements <- strsplit(sql_text, ";", fixed = TRUE)[[1]]
+
+for (stmt in statements) {
+  stmt <- trimws(stmt)
+
+  if (nzchar(stmt)) {
+    DBI::dbExecute(pg_con, stmt)
+  }
+}
+
+message("✓ Schema loaded")
+
 # ----------------------------------------------------------------------------
 # Define migration table mappings
 # ----------------------------------------------------------------------------
