@@ -23,3 +23,4 @@ renv/staging/
 .RData
 .Ruserdata
 .DS_Store
+.env
