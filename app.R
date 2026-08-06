@@ -2,32 +2,37 @@ library(shiny)
 library(bslib)
 library(DT)
 library(DBI)
-library(RSQLite)
+library(RPostgres)
 library(sodium)
 library(config)
 library(dplyr)
 library(shinyjs)
 library(colourpicker)
 library(ggtree)
+library(dotenv)
+
+if (file.exists(".env")) {
+  dotenv::load_dot_env()
+}
 
 # Load configuration
 app_config <- config::get(file = "config.yml")
 
-# Database connections
-main_conn <- create_db_conn(app_config$database$main_path)
-pending_conn <- create_db_conn(app_config$database$pending_path)
-users_conn <- create_db_conn(app_config$database$users_path)
-
-# Ensure tables exist and seed admin
-ensure_users_table(users_conn)
-ensure_pending_tables(pending_conn)
-seed_default_admin(users_conn, app_config$admin)
+# Database connection
+source("R/db_connection.R")
+main_conn <- create_postgres_conn()
+print(system.time(
+  DBI::dbGetQuery(
+    main_conn,
+    "SELECT COUNT(*) FROM yjs_numbers"
+  )
+))
+# Seed admin
+seed_default_admin(main_conn, app_config$admin)
 
 # Clean up on app stop
 onStop(function() {
   DBI::dbDisconnect(main_conn)
-  DBI::dbDisconnect(pending_conn)
-  DBI::dbDisconnect(users_conn)
 })
 
 # Theme (light + dark mode support)
@@ -168,7 +173,7 @@ ui <- fluidPage(
 # Server
 server <- function(input, output, session) {
   # Authentication
-  credentials <- login_server("login", users_conn)
+  credentials <- login_server("login", main_conn)
 
   user_info <- reactive({
     creds <- credentials()
@@ -296,13 +301,13 @@ server <- function(input, output, session) {
   home_server("home", main_conn, user_info, navigate)
   browse_server("browse", main_conn, user_info)
   nameconv_server("nameconv", main_conn, user_info)
-  add_entry_server("add_entry", main_conn, pending_conn, user_info)
-  review_count <- review_server("review", main_conn, pending_conn, user_info)
+  add_entry_server("add_entry", main_conn, user_info)
+  review_count <- review_server("review", main_conn, user_info)
   active_tab <- reactive(input$main_navbar)
-  unread_count <- notifications_server("notifications", main_conn, pending_conn, user_info, active_tab)
+  unread_count <- notifications_server("notifications", main_conn, user_info, active_tab)
   tree_server("tree", user_info)
-  admin_server("admin", users_conn, user_info)
-  change_password_server("change_password", users_conn, user_info)
+  admin_server("admin", main_conn, user_info)
+  change_password_server("change_password", main_conn, user_info)
 
   # Badge updates (req ensures navbar DOM exists before sending)
   observe({

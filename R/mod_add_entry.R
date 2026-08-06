@@ -1,11 +1,10 @@
 #' Add Entry Module
 #'
 #' Provides sub-tabs for adding new entries to the database.
-#' v1: YJS Samples and Strains. Rows go to SQLite pending tables for admin review.
+#' v1: YJS Samples and Strains. Rows go to DB pending tables for admin review.
 #'
 #' @param id Module namespace ID
-#' @param main_conn Main SQLite DB connection
-#' @param pending_conn SQLite connection for pending submissions
+#' @param db_conn Database connection
 #' @param user_info Reactive returning logged-in user data.frame
 #' @param species_list Character vector of allowed species
 
@@ -14,60 +13,60 @@
 #' Validate YJS sample rows
 #'
 #' @param df Data frame of YJS rows to validate
-#' @param main_conn Main SQLite DB connection
-#' @param pending_conn SQLite connection
+#' @param db_conn Database connection
 #' @return List with valid (logical) and errors (character vector)
-validate_yjs <- function(df, main_conn, pending_conn) {
+validate_yjs <- function(df, db_conn) {
   errors <- character(0)
 
   existing_strains <- DBI::dbGetQuery(
-    main_conn, "SELECT STRAIN FROM Strains"
-  )$STRAIN
+    db_conn, "SELECT strain FROM strains"
+  )$strain
   pending_s <- DBI::dbGetQuery(
-    pending_conn, "SELECT STRAIN FROM pending_strains"
-  )$STRAIN
+    db_conn, "SELECT strain FROM pending_strains"
+  )$strain
   all_strains <- c(existing_strains, pending_s)
 
+  names(df) <- tolower(names(df))
   for (i in seq_len(nrow(df))) {
     row_prefix <- sprintf("Row %d: ", i)
 
-    if (is.na(df$SAMPLE_NAME[i]) ||
-        nchar(trimws(as.character(df$SAMPLE_NAME[i]))) == 0) {
+    if (is.na(df$sample_name[i]) ||
+        nchar(trimws(as.character(df$sample_name[i]))) == 0) {
       errors <- c(errors,
-        paste0(row_prefix, "SAMPLE_NAME is required."))
+        paste0(row_prefix, "sample_name is required."))
     }
 
-    has_box <- !is.na(df$BOX_NUMBER[i])
-    has_plate <- !is.na(df$PLATE[i]) &&
-                 !is.na(df$PLATE_ROW[i]) &&
-                 !is.na(df$PLATE_COL[i])
+    has_box <- !is.na(df$box_number[i])
+    has_plate <- !is.na(df$plate[i]) &&
+                 !is.na(df$plate_row[i]) &&
+                 !is.na(df$plate_col[i])
     if (!has_box && !has_plate) {
       errors <- c(errors,
         paste0(row_prefix,
-          "At least BOX_NUMBER or PLATE location ",
-          "(PLATE + PLATE_ROW + PLATE_COL) is required."))
+          "At least box_number or plate location ",
+          "(plate + plate_row + plate_col) is required."))
     }
 
-    if (is.na(df$STOCKED_BY[i]) ||
-        nchar(trimws(as.character(df$STOCKED_BY[i]))) == 0) {
+    if (is.na(df$stocked_by[i]) ||
+        nchar(trimws(as.character(df$stocked_by[i]))) == 0) {
       errors <- c(errors,
-        paste0(row_prefix, "STOCKED_BY is required."))
+        paste0(row_prefix, "stocked_by is required."))
     }
 
-    if (!is.na(df$PLOIDY[i]) &&
-        nchar(trimws(df$PLOIDY[i])) > 0 &&
-        !grepl("^\\d+n$", df$PLOIDY[i])) {
+    if (!is.na(df$ploidy[i]) &&
+        nchar(trimws(df$ploidy[i])) > 0 &&
+        !grepl("^\\d+n$", df$ploidy[i])) {
       errors <- c(errors,
-        paste0(row_prefix, "Invalid PLOIDY '",
-               df$PLOIDY[i], "'. Expected format: <int>n"))
+        paste0(row_prefix, "Invalid ploidy '",
+               df$ploidy[i], "'. Expected format: <int>n"))
     }
 
-    if (!is.na(df$ID_STRAIN[i]) &&
-        nchar(trimws(df$ID_STRAIN[i])) > 0 &&
-        !(df$ID_STRAIN[i] %in% all_strains)) {
+    if (!is.na(df$id_strain[i]) &&
+        nchar(trimws(df$id_strain[i])) > 0 &&
+        !(df$id_strain[i] %in% all_strains)) {
       errors <- c(errors,
-        paste0(row_prefix, "ID_STRAIN '",
-               df$ID_STRAIN[i], "' not found."))
+        paste0(row_prefix, "id_strain '",
+               df$id_strain[i], "' not found."))
     }
   }
 
@@ -77,27 +76,26 @@ validate_yjs <- function(df, main_conn, pending_conn) {
 #' Validate strain rows
 #'
 #' @param df Data frame of strain rows to validate
-#' @param main_conn Main SQLite DB connection
-#' @param pending_conn SQLite connection
+#' @param db_conn Database connection
 #' @return List with valid (logical) and errors (character vector)
-validate_strains <- function(df, main_conn, pending_conn) {
+validate_strains <- function(df, db_conn) {
   errors <- character(0)
 
   existing_strains <- DBI::dbGetQuery(
-    main_conn, "SELECT STRAIN FROM Strains"
-  )$STRAIN
+    db_conn, "SELECT strain FROM strains"
+  )$strain
   pending_s <- DBI::dbGetQuery(
-    pending_conn, "SELECT STRAIN FROM pending_strains"
-  )$STRAIN
+    db_conn, "SELECT strain FROM pending_strains"
+  )$strain
   all_strains <- c(existing_strains, pending_s)
 
   for (i in seq_len(nrow(df))) {
     row_prefix <- sprintf("Row %d: ", i)
 
-    if (df$STRAIN[i] %in% all_strains) {
+    if (df$strain[i] %in% all_strains) {
       errors <- c(errors,
-        paste0(row_prefix, "STRAIN '",
-               df$STRAIN[i], "' already exists."))
+        paste0(row_prefix, "strain '",
+               df$strain[i], "' already exists."))
     }
   }
 
@@ -106,22 +104,21 @@ validate_strains <- function(df, main_conn, pending_conn) {
 
 #' Get next XTRA_ strain name by incrementing the 3-letter code
 #'
-#' @param main_conn Main SQLite DB connection
-#' @param pending_conn SQLite connection
+#' @param db_conn Database connection
 #' @param count Number of names to generate
 #' @return Character vector of XTRA_XXX names
-next_xtra_names <- function(main_conn, pending_conn, count = 1, extra_names = character(0)) {
+next_xtra_names <- function(db_conn, count = 1, extra_names = character(0)) {
   db_last <- DBI::dbGetQuery(
-    main_conn,
-    "SELECT STRAIN FROM Strains WHERE STRAIN LIKE 'XTRA_%' ORDER BY STRAIN DESC LIMIT 1"
-  )$STRAIN
+    db_conn,
+    "SELECT strain FROM strains WHERE strain LIKE 'XTRA_%' ORDER BY strain DESC LIMIT 1"
+  )$strain
 
-  sqlite_last <- DBI::dbGetQuery(
-    pending_conn,
-    "SELECT STRAIN FROM pending_strains WHERE STRAIN LIKE 'XTRA_%' ORDER BY STRAIN DESC LIMIT 1"
-  )$STRAIN
+  pending_last <- DBI::dbGetQuery(
+    db_conn,
+    "SELECT strain FROM pending_strains WHERE strain LIKE 'XTRA_%' ORDER BY strain DESC LIMIT 1"
+  )$strain
 
-  candidates <- c(db_last, sqlite_last, extra_names)
+  candidates <- c(db_last, pending_last, extra_names)
   if (length(candidates) == 0) {
     last_name <- "XTRA_AAA"
     idx1 <- 1; idx2 <- 1; idx3 <- 0
@@ -151,18 +148,18 @@ next_xtra_names <- function(main_conn, pending_conn, count = 1, extra_names = ch
 
 # YJS column definitions for the form and template
 yjs_columns <- function() {
-  c("SAMPLE_NAME", "SPECIES", "MATING_TYPE", "PLOIDY",
-    "GENOTYPE", "SPORULATION", "EXTERNAL_ORIGIN", "ECO_ORIGIN",
-    "COMMENTS_ORIGIN", "PARENTAL_ORIGIN", "PUBLICATION",
-    "STRAINS_GROUP", "OLD_BOX", "BOX_NUMBER", "BOX_ROW", "BOX_COL",
-    "PLATE", "PLATE_ROW", "PLATE_COL",
-    "NOTES", "STOCKED_BY", "COMMENTS", "ID_STRAIN",
-    "SAMPLE_TYPE", "COLLECTION")
+  c("sample_name", "species", "mating_type", "ploidy",
+    "genotype", "sporulation", "external_origin", "eco_origin",
+    "comments_origin", "parental_origin", "publication",
+    "strains_group", "old_box", "box_number", "box_row", "box_col",
+    "plate", "plate_row", "plate_col",
+    "notes", "stocked_by", "comments", "id_strain",
+    "sample_type", "collection")
 }
 
 strain_columns <- function() {
-  c("STRAIN_NAME", "ISOLATION", "ECO_ORIGIN", "GEO_ORIGIN",
-    "CONTINENT", "COUNTRY", "CLADE", "SRR_ID", "SPECIES")
+  c("strain_name", "isolation", "eco_origin", "geo_origin",
+    "continent", "country", "clade", "srr_id", "species")
 }
 
 # -- UI --
@@ -249,7 +246,7 @@ add_entry_ui <- function(id) {
             tags$small(
               class = "text-muted",
               "YJS numbers are auto-assigned on approval.",
-              "Any YJS_NUMBER column in the file will be ignored."
+              "Any yjs_number column in the file will be ignored."
             )
           ),
           tags$hr(),
@@ -318,7 +315,7 @@ add_entry_ui <- function(id) {
             fileInput(ns("strain_file"), "Upload TSV/CSV file",
                       accept = c(".tsv", ".csv", ".txt")),
             tags$small(class = "text-muted",
-                       "File must have a STRAIN_NAME column. XTRA_XXX names are auto-assigned.")
+                       "File must have a strain_name column. XTRA_XXX names are auto-assigned.")
           ),
           tags$hr(),
           conditionalPanel(
@@ -353,22 +350,22 @@ add_entry_ui <- function(id) {
 
 # -- Server --
 
-add_entry_server <- function(id, main_conn, pending_conn, user_info) {
+add_entry_server <- function(id, db_conn, user_info) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
     # Dynamic choices for species, ploidy, mating type
     get_species <- function() {
-      c("", get_field_choices(pending_conn, main_conn, "species"))
+      c("", get_field_choices(db_conn, "species"))
     }
     get_ploidy <- function() {
-      c("", get_field_choices(pending_conn, main_conn, "ploidy"))
+      c("", get_field_choices(db_conn, "ploidy"))
     }
     get_mating <- function() {
-      c("", get_field_choices(pending_conn, main_conn, "mating_type"))
+      c("", get_field_choices(db_conn, "mating_type"))
     }
     get_collection <- function() {
-      c("", get_field_choices(pending_conn, main_conn, "collection"))
+      c("", get_field_choices(db_conn, "collection"))
     }
 
     refresh_choices <- function() {
@@ -413,31 +410,31 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
 
     build_yjs_manual <- function() {
       data.frame(
-        SAMPLE_NAME = trimws(input$yjs_sample_name),
-        SPECIES = na_if_empty(input$yjs_species),
-        MATING_TYPE = na_if_empty(input$yjs_mating_type),
-        PLOIDY = na_if_empty(input$yjs_ploidy),
-        GENOTYPE = na_if_empty(input$yjs_genotype),
-        SPORULATION = na_if_empty(input$yjs_sporulation),
-        EXTERNAL_ORIGIN = na_if_empty(input$yjs_external_origin),
-        ECO_ORIGIN = na_if_empty(input$yjs_eco_origin),
-        COMMENTS_ORIGIN = na_if_empty(input$yjs_comments_origin),
-        PARENTAL_ORIGIN = na_if_empty(input$yjs_parental_origin),
-        PUBLICATION = na_if_empty(input$yjs_publication),
-        STRAINS_GROUP = na_if_empty(input$yjs_strains_group),
-        OLD_BOX = parse_int(input$yjs_old_box),
-        BOX_NUMBER = parse_int(input$yjs_box_number),
-        BOX_ROW = parse_int(input$yjs_box_row),
-        BOX_COL = parse_int(input$yjs_box_col),
-        PLATE = parse_int(input$yjs_plate),
-        PLATE_ROW = parse_int(input$yjs_plate_row),
-        PLATE_COL = parse_int(input$yjs_plate_col),
-        NOTES = na_if_empty(input$yjs_notes),
-        STOCKED_BY = trimws(input$yjs_stocked_by),
-        COMMENTS = na_if_empty(input$yjs_comments),
-        ID_STRAIN = na_if_empty(input$yjs_id_strain),
-        SAMPLE_TYPE = na_if_empty(input$yjs_sample_type),
-        COLLECTION = na_if_empty(input$yjs_collection),
+        sample_name = trimws(input$yjs_sample_name),
+        species = na_if_empty(input$yjs_species),
+        mating_type = na_if_empty(input$yjs_mating_type),
+        ploidy = na_if_empty(input$yjs_ploidy),
+        genotype = na_if_empty(input$yjs_genotype),
+        sporulation = na_if_empty(input$yjs_sporulation),
+        external_origin = na_if_empty(input$yjs_external_origin),
+        eco_origin = na_if_empty(input$yjs_eco_origin),
+        comments_origin = na_if_empty(input$yjs_comments_origin),
+        parental_origin = na_if_empty(input$yjs_parental_origin),
+        publication = na_if_empty(input$yjs_publication),
+        strains_group = na_if_empty(input$yjs_strains_group),
+        old_box = parse_int(input$yjs_old_box),
+        box_number = parse_int(input$yjs_box_number),
+        box_row = parse_int(input$yjs_box_row),
+        box_col = parse_int(input$yjs_box_col),
+        plate = parse_int(input$yjs_plate),
+        plate_row = parse_int(input$yjs_plate_row),
+        plate_col = parse_int(input$yjs_plate_col),
+        notes = na_if_empty(input$yjs_notes),
+        stocked_by = trimws(input$yjs_stocked_by),
+        comments = na_if_empty(input$yjs_comments),
+        id_strain = na_if_empty(input$yjs_id_strain),
+        sample_type = na_if_empty(input$yjs_sample_type),
+        collection = na_if_empty(input$yjs_collection),
         stringsAsFactors = FALSE
       )
     }
@@ -484,47 +481,47 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
 
     fill_yjs_form <- function(row) {
       updateTextInput(session, "yjs_sample_name",
-                      value = na_to_empty(row$SAMPLE_NAME))
+                      value = na_to_empty(row$sample_name))
       sp <- get_species()
-      sel_sp <- na_to_empty(row$SPECIES)
+      sel_sp <- na_to_empty(row$species)
       if (nchar(sel_sp) > 0 && !(sel_sp %in% sp)) sp <- c(sp, sel_sp)
       updateSelectizeInput(session, "yjs_species",
                            choices = sp, selected = sel_sp,
                            server = FALSE)
       mt <- get_mating()
-      sel_mt <- na_to_empty(row$MATING_TYPE)
+      sel_mt <- na_to_empty(row$mating_type)
       if (nchar(sel_mt) > 0 && !(sel_mt %in% mt)) mt <- c(mt, sel_mt)
       updateSelectizeInput(session, "yjs_mating_type",
                            choices = mt, selected = sel_mt,
                            server = FALSE)
       pl <- get_ploidy()
-      sel_pl <- na_to_empty(row$PLOIDY)
+      sel_pl <- na_to_empty(row$ploidy)
       if (nchar(sel_pl) > 0 && !(sel_pl %in% pl)) pl <- c(pl, sel_pl)
       updateSelectizeInput(session, "yjs_ploidy",
                            choices = pl, selected = sel_pl,
                            server = FALSE)
-      updateTextInput(session, "yjs_genotype", value = na_to_empty(row$GENOTYPE))
-      updateTextInput(session, "yjs_sporulation", value = na_to_empty(row$SPORULATION))
-      updateTextInput(session, "yjs_external_origin", value = na_to_empty(row$EXTERNAL_ORIGIN))
-      updateTextInput(session, "yjs_eco_origin", value = na_to_empty(row$ECO_ORIGIN))
-      updateTextInput(session, "yjs_comments_origin", value = na_to_empty(row$COMMENTS_ORIGIN))
-      updateTextInput(session, "yjs_parental_origin", value = na_to_empty(row$PARENTAL_ORIGIN))
-      updateTextInput(session, "yjs_publication", value = na_to_empty(row$PUBLICATION))
-      updateTextInput(session, "yjs_strains_group", value = na_to_empty(row$STRAINS_GROUP))
-      updateTextInput(session, "yjs_old_box", value = na_to_empty(row$OLD_BOX))
-      updateTextInput(session, "yjs_box_number", value = na_to_empty(row$BOX_NUMBER))
-      updateTextInput(session, "yjs_box_row", value = na_to_empty(row$BOX_ROW))
-      updateTextInput(session, "yjs_box_col", value = na_to_empty(row$BOX_COL))
-      updateTextInput(session, "yjs_plate", value = na_to_empty(row$PLATE))
-      updateTextInput(session, "yjs_plate_row", value = na_to_empty(row$PLATE_ROW))
-      updateTextInput(session, "yjs_plate_col", value = na_to_empty(row$PLATE_COL))
-      updateTextInput(session, "yjs_notes", value = na_to_empty(row$NOTES))
-      updateTextInput(session, "yjs_stocked_by", value = na_to_empty(row$STOCKED_BY))
-      updateTextInput(session, "yjs_comments", value = na_to_empty(row$COMMENTS))
-      updateTextInput(session, "yjs_id_strain", value = na_to_empty(row$ID_STRAIN))
-      updateTextInput(session, "yjs_sample_type", value = na_to_empty(row$SAMPLE_TYPE))
+      updateTextInput(session, "yjs_genotype", value = na_to_empty(row$genotype))
+      updateTextInput(session, "yjs_sporulation", value = na_to_empty(row$sporulation))
+      updateTextInput(session, "yjs_external_origin", value = na_to_empty(row$external_origin))
+      updateTextInput(session, "yjs_eco_origin", value = na_to_empty(row$eco_origin))
+      updateTextInput(session, "yjs_comments_origin", value = na_to_empty(row$comments_origin))
+      updateTextInput(session, "yjs_parental_origin", value = na_to_empty(row$parental_origin))
+      updateTextInput(session, "yjs_publication", value = na_to_empty(row$publication))
+      updateTextInput(session, "yjs_strains_group", value = na_to_empty(row$strains_group))
+      updateTextInput(session, "yjs_old_box", value = na_to_empty(row$old_box))
+      updateTextInput(session, "yjs_box_number", value = na_to_empty(row$box_number))
+      updateTextInput(session, "yjs_box_row", value = na_to_empty(row$box_row))
+      updateTextInput(session, "yjs_box_col", value = na_to_empty(row$box_col))
+      updateTextInput(session, "yjs_plate", value = na_to_empty(row$plate))
+      updateTextInput(session, "yjs_plate_row", value = na_to_empty(row$plate_row))
+      updateTextInput(session, "yjs_plate_col", value = na_to_empty(row$plate_col))
+      updateTextInput(session, "yjs_notes", value = na_to_empty(row$notes))
+      updateTextInput(session, "yjs_stocked_by", value = na_to_empty(row$stocked_by))
+      updateTextInput(session, "yjs_comments", value = na_to_empty(row$comments))
+      updateTextInput(session, "yjs_id_strain", value = na_to_empty(row$id_strain))
+      updateTextInput(session, "yjs_sample_type", value = na_to_empty(row$sample_type))
       cl <- get_collection()
-      sel_cl <- na_to_empty(row$COLLECTION)
+      sel_cl <- na_to_empty(row$collection)
       if (nchar(sel_cl) > 0 && !(sel_cl %in% cl)) cl <- c(cl, sel_cl)
       updateSelectizeInput(session, "yjs_collection",
                            choices = cl, selected = sel_cl,
@@ -543,13 +540,13 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
       }
 
       expected <- yjs_columns()
-      # Allow STRAIN_NAME as alias for ID_STRAIN
-      if ("STRAIN_NAME" %in% names(df) && !("ID_STRAIN" %in% names(df))) {
-        names(df)[names(df) == "STRAIN_NAME"] <- "ID_STRAIN"
+      # Allow strain_name as alias for id_strain
+      if ("strain_name" %in% names(df) && !("id_strain" %in% names(df))) {
+        names(df)[names(df) == "strain_name"] <- "id_strain"
       }
 
-      # Drop YJS_NUMBER if present (auto-assigned on approval)
-      if ("YJS_NUMBER" %in% names(df)) df$YJS_NUMBER <- NULL
+      # Drop yjs_number if present (auto-assigned on approval)
+      if ("yjs_number" %in% names(df)) df$yjs_number <- NULL
 
       # Add missing columns as NA
       for (col in expected) {
@@ -575,7 +572,7 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
     observeEvent(input$yjs_add_btn, {
       tryCatch({
         df <- build_yjs_manual()
-        result <- validate_yjs(df, main_conn, pending_conn)
+        result <- validate_yjs(df, db_conn)
 
         if (!result$valid) {
           output$yjs_feedback <- renderUI(
@@ -591,7 +588,7 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
         output$yjs_feedback <- renderUI(
           tags$div(class = "alert alert-success",
                    sprintf("Added '%s' to list. %d entry(ies) ready.",
-                           df$SAMPLE_NAME[1], nrow(current) + 1))
+                           df$sample_name[1], nrow(current) + 1))
         )
         reset_yjs_form()
       }, error = function(e) {
@@ -615,7 +612,7 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
         df <- build_yjs_manual()
         current <- yjs_list_data()
 
-        result <- validate_yjs(df, main_conn, pending_conn)
+        result <- validate_yjs(df, db_conn)
         if (!result$valid) {
           output$yjs_feedback <- renderUI(
             tags$div(class = "alert alert-danger",
@@ -629,7 +626,7 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
         yjs_list_data(current)
         output$yjs_feedback <- renderUI(
           tags$div(class = "alert alert-success",
-                   sprintf("Updated %s in list.", df$SAMPLE_NAME[1]))
+                   sprintf("Updated %s in list.", df$sample_name[1]))
         )
         reset_yjs_form()
       }, error = function(e) {
@@ -663,7 +660,7 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
     observeEvent(input$yjs_preview_btn, {
       tryCatch({
         df <- build_yjs_from_file()
-        result <- validate_yjs(df, main_conn, pending_conn)
+        result <- validate_yjs(df, db_conn)
         yjs_preview_data(df)
 
         if (!result$valid) {
@@ -710,7 +707,7 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
       }
       req(nrow(df) > 0)
 
-      result <- validate_yjs(df, main_conn, pending_conn)
+      result <- validate_yjs(df, db_conn)
 
       if (!result$valid) {
         output$yjs_feedback <- renderUI(
@@ -721,26 +718,26 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
         return()
       }
 
-      df$YJS_NUMBER <- "PENDING"
+      df$yjs_number <- "PENDING"
       df$submitted_by <- user_info()$username
       df$submitted_at <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
 
       tryCatch({
         # Save any new custom options
-        for (val in unique(df$SPECIES[!is.na(df$SPECIES) & df$SPECIES != ""])) {
-          save_custom_option(pending_conn, "species", val)
+        for (val in unique(df$species[!is.na(df$species) & df$species != ""])) {
+          save_custom_option(db_conn, "species", val)
         }
-        for (val in unique(df$PLOIDY[!is.na(df$PLOIDY) & df$PLOIDY != ""])) {
-          save_custom_option(pending_conn, "ploidy", val)
+        for (val in unique(df$ploidy[!is.na(df$ploidy) & df$ploidy != ""])) {
+          save_custom_option(db_conn, "ploidy", val)
         }
-        for (val in unique(df$MATING_TYPE[!is.na(df$MATING_TYPE) & df$MATING_TYPE != ""])) {
-          save_custom_option(pending_conn, "mating_type", val)
+        for (val in unique(df$mating_type[!is.na(df$mating_type) & df$mating_type != ""])) {
+          save_custom_option(db_conn, "mating_type", val)
         }
-        for (val in unique(df$COLLECTION[!is.na(df$COLLECTION) & df$COLLECTION != ""])) {
-          save_custom_option(pending_conn, "collection", val)
+        for (val in unique(df$collection[!is.na(df$collection) & df$collection != ""])) {
+          save_custom_option(db_conn, "collection", val)
         }
 
-        DBI::dbWriteTable(pending_conn, "pending_yjs", df, append = TRUE, row.names = FALSE)
+        DBI::dbWriteTable(db_conn, "pending_yjs", df, append = TRUE, row.names = FALSE)
         output$yjs_feedback <- renderUI(
           tags$div(class = "alert alert-success",
                    sprintf("%d YJS sample(s) submitted for review.", nrow(df)))
@@ -772,15 +769,15 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
 
     build_strain_manual <- function() {
       data.frame(
-        STRAIN_NAME = trimws(input$strain_name),
-        ISOLATION = na_if_empty(input$strain_isolation),
-        ECO_ORIGIN = na_if_empty(input$strain_eco_origin),
-        GEO_ORIGIN = na_if_empty(input$strain_geo_origin),
-        CONTINENT = na_if_empty(input$strain_continent),
-        COUNTRY = na_if_empty(input$strain_country),
-        CLADE = na_if_empty(input$strain_clade),
-        SRR_ID = na_if_empty(input$strain_srr_id),
-        SPECIES = na_if_empty(input$strain_species),
+        strain_name = trimws(input$strain_name),
+        isolation = na_if_empty(input$strain_isolation),
+        eco_origin = na_if_empty(input$strain_eco_origin),
+        geo_origin = na_if_empty(input$strain_geo_origin),
+        continent = na_if_empty(input$strain_continent),
+        country = na_if_empty(input$strain_country),
+        clade = na_if_empty(input$strain_clade),
+        srr_id = na_if_empty(input$strain_srr_id),
+        species = na_if_empty(input$strain_species),
         stringsAsFactors = FALSE
       )
     }
@@ -802,15 +799,15 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
 
     fill_strain_form <- function(row) {
       updateTextInput(session, "strain_name", value = na_to_empty(row$original_name))
-      updateTextInput(session, "strain_isolation", value = na_to_empty(row$ISOLATION))
-      updateTextInput(session, "strain_eco_origin", value = na_to_empty(row$ECO_ORIGIN))
-      updateTextInput(session, "strain_geo_origin", value = na_to_empty(row$GEO_ORIGIN))
-      updateTextInput(session, "strain_continent", value = na_to_empty(row$CONTINENT))
-      updateTextInput(session, "strain_country", value = na_to_empty(row$COUNTRY))
-      updateTextInput(session, "strain_clade", value = na_to_empty(row$CLADE))
-      updateTextInput(session, "strain_srr_id", value = na_to_empty(row$SRR_ID))
+      updateTextInput(session, "strain_isolation", value = na_to_empty(row$isolation))
+      updateTextInput(session, "strain_eco_origin", value = na_to_empty(row$eco_origin))
+      updateTextInput(session, "strain_geo_origin", value = na_to_empty(row$geo_origin))
+      updateTextInput(session, "strain_continent", value = na_to_empty(row$continent))
+      updateTextInput(session, "strain_country", value = na_to_empty(row$country))
+      updateTextInput(session, "strain_clade", value = na_to_empty(row$clade))
+      updateTextInput(session, "strain_srr_id", value = na_to_empty(row$srr_id))
       sp <- get_species()
-      sel_sp <- na_to_empty(row$SPECIES)
+      sel_sp <- na_to_empty(row$species)
       if (nchar(sel_sp) > 0 && !(sel_sp %in% sp)) sp <- c(sp, sel_sp)
       updateSelectizeInput(session, "strain_species",
                            choices = sp, selected = sel_sp,
@@ -838,16 +835,16 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
 
     assign_xtra_names <- function(df) {
       existing <- strain_list_data()
-      existing_xtra <- if (nrow(existing) > 0 && "STRAIN" %in% names(existing)) {
-        grep("^XTRA_", existing$STRAIN, value = TRUE)
+      existing_xtra <- if (nrow(existing) > 0 && "strain" %in% names(existing)) {
+        grep("^XTRA_", existing$strain, value = TRUE)
       } else {
         character(0)
       }
-      xtra_names <- next_xtra_names(main_conn, pending_conn, nrow(df),
+      xtra_names <- next_xtra_names(db_conn, nrow(df),
                                     extra_names = existing_xtra)
-      df$STRAIN <- xtra_names
-      df$original_name <- df$STRAIN_NAME
-      df$STRAIN_NAME <- NULL
+      df$strain <- xtra_names
+      df$original_name <- df$strain_name
+      df$strain_name <- NULL
       df
     }
 
@@ -867,7 +864,7 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
       tryCatch({
         df <- build_strain_manual()
 
-        if (nrow(df) == 0 || all(is.na(df$STRAIN_NAME) | trimws(df$STRAIN_NAME) == "")) {
+        if (nrow(df) == 0 || all(is.na(df$strain_name) | trimws(df$strain_name) == "")) {
           output$strain_feedback <- renderUI(
             tags$div(class = "alert alert-danger", "Strain name is required.")
           )
@@ -875,7 +872,7 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
         }
 
         df_with_names <- assign_xtra_names(df)
-        result <- validate_strains(df_with_names, main_conn, pending_conn)
+        result <- validate_strains(df_with_names, db_conn)
 
         if (!result$valid) {
           output$strain_feedback <- renderUI(
@@ -891,7 +888,7 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
         output$strain_feedback <- renderUI(
           tags$div(class = "alert alert-success",
                    sprintf("Added %s (%s) to list. %d entry(ies) ready to submit.",
-                           df_with_names$STRAIN[1], df_with_names$original_name[1],
+                           df_with_names$strain[1], df_with_names$original_name[1],
                            nrow(current) + 1))
         )
         reset_strain_form()
@@ -915,7 +912,7 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
       tryCatch({
         df <- build_strain_manual()
 
-        if (nrow(df) == 0 || all(is.na(df$STRAIN_NAME) | trimws(df$STRAIN_NAME) == "")) {
+        if (nrow(df) == 0 || all(is.na(df$strain_name) | trimws(df$strain_name) == "")) {
           output$strain_feedback <- renderUI(
             tags$div(class = "alert alert-danger", "Strain name is required.")
           )
@@ -923,14 +920,14 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
         }
 
         current <- strain_list_data()
-        # Keep the existing STRAIN (XTRA_XXX) name for the updated row
-        existing_strain <- current$STRAIN[sel]
+        # Keep the existing strain (XTRA_XXX) name for the updated row
+        existing_strain <- current$strain[sel]
         df_updated <- df
-        df_updated$STRAIN <- existing_strain
-        df_updated$original_name <- df_updated$STRAIN_NAME
-        df_updated$STRAIN_NAME <- NULL
+        df_updated$strain <- existing_strain
+        df_updated$original_name <- df_updated$strain_name
+        df_updated$strain_name <- NULL
 
-        result <- validate_strains(df_updated, main_conn, pending_conn)
+        result <- validate_strains(df_updated, db_conn)
         if (!result$valid) {
           output$strain_feedback <- renderUI(
             tags$div(class = "alert alert-danger",
@@ -979,7 +976,7 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
       tryCatch({
         df <- build_strain_from_file()
 
-        if (nrow(df) == 0 || all(is.na(df$STRAIN_NAME) | trimws(df$STRAIN_NAME) == "")) {
+        if (nrow(df) == 0 || all(is.na(df$strain_name) | trimws(df$strain_name) == "")) {
           output$strain_feedback <- renderUI(
             tags$div(class = "alert alert-danger", "At least one strain name is required.")
           )
@@ -987,7 +984,7 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
         }
 
         df_with_names <- assign_xtra_names(df)
-        result <- validate_strains(df_with_names, main_conn, pending_conn)
+        result <- validate_strains(df_with_names, db_conn)
         strain_preview_data(df_with_names)
 
         if (!result$valid) {
@@ -1001,7 +998,7 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
             tags$div(class = "alert alert-success",
                      sprintf("%d strain(s) passed validation. Names assigned: %s",
                              nrow(df_with_names),
-                             paste(df_with_names$STRAIN, collapse = ", ")))
+                             paste(df_with_names$strain, collapse = ", ")))
           )
         }
       }, error = function(e) {
@@ -1036,7 +1033,7 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
       }
       req(nrow(df) > 0)
 
-      result <- validate_strains(df, main_conn, pending_conn)
+      result <- validate_strains(df, db_conn)
 
       if (!result$valid) {
         output$strain_feedback <- renderUI(
@@ -1052,11 +1049,11 @@ add_entry_server <- function(id, main_conn, pending_conn, user_info) {
 
       tryCatch({
         # Save any new custom species options
-        for (val in unique(df$SPECIES[!is.na(df$SPECIES) & df$SPECIES != ""])) {
-          save_custom_option(pending_conn, "species", val)
+        for (val in unique(df$species[!is.na(df$species) & df$species != ""])) {
+          save_custom_option(db_conn, "species", val)
         }
 
-        DBI::dbWriteTable(pending_conn, "pending_strains", df, append = TRUE, row.names = FALSE)
+        DBI::dbWriteTable(db_conn, "pending_strains", df, append = TRUE, row.names = FALSE)
         output$strain_feedback <- renderUI(
           tags$div(class = "alert alert-success",
                    sprintf("%d strain(s) submitted for review.", nrow(df)))

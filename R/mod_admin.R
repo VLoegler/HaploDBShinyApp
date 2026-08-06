@@ -1,10 +1,10 @@
 #' Admin Panel Module
 #'
-#' User management: view all accounts, add new users, delete users.
+#' User management: view all accounts, add new users, delete users, reset passwords.
 #' Only accessible to admin users. Cannot delete the last admin account.
 #'
 #' @param id Module namespace ID
-#' @param users_conn SQLite connection for users database
+#' @param db_conn Database connection
 #' @param user_info Reactive returning logged-in user data.frame
 
 admin_ui <- function(id) {
@@ -39,14 +39,14 @@ admin_ui <- function(id) {
   )
 }
 
-admin_server <- function(id, users_conn, user_info) {
+admin_server <- function(id, db_conn, user_info) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
     users_data <- reactiveVal(NULL)
 
     load_users <- function() {
-      df <- DBI::dbGetQuery(users_conn, "SELECT id, username, role, created_at FROM users ORDER BY id")
+      df <- DBI::dbGetQuery(db_conn, "SELECT id, username, role, created_at FROM users ORDER BY id")
       users_data(df)
     }
 
@@ -92,7 +92,7 @@ admin_server <- function(id, users_conn, user_info) {
       }
 
       existing <- DBI::dbGetQuery(
-        users_conn, "SELECT COUNT(*) AS n FROM users WHERE username = ?",
+        db_conn, "SELECT COUNT(*) AS n FROM users WHERE username = $1",
         params = list(username)
       )$n
 
@@ -105,8 +105,8 @@ admin_server <- function(id, users_conn, user_info) {
 
       hashed <- hash_password(password)
       DBI::dbExecute(
-        users_conn,
-        "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+        db_conn,
+        "INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3)",
         params = list(username, hashed, role)
       )
 
@@ -161,8 +161,8 @@ admin_server <- function(id, users_conn, user_info) {
 
       new_hash <- hash_password(new_pw)
       DBI::dbExecute(
-        users_conn,
-        "UPDATE users SET password_hash = ? WHERE id = ?",
+        db_conn,
+        "UPDATE users SET password_hash = $1 WHERE id = $2",
         params = list(new_hash, target_id)
       )
 
@@ -197,7 +197,7 @@ admin_server <- function(id, users_conn, user_info) {
       # Cannot delete the last admin
       if (target$role == "admin") {
         admin_count <- DBI::dbGetQuery(
-          users_conn, "SELECT COUNT(*) AS n FROM users WHERE role = 'admin'"
+          db_conn, "SELECT COUNT(*) n FROM users WHERE role = 'admin'"
         )$n
         if (admin_count <= 1) {
           output$delete_feedback <- renderUI(
@@ -208,7 +208,7 @@ admin_server <- function(id, users_conn, user_info) {
         }
       }
 
-      DBI::dbExecute(users_conn, "DELETE FROM users WHERE id = ?", params = list(target_id))
+      DBI::dbExecute(db_conn, "DELETE FROM users WHERE id = $1", params = list(target_id))
 
       output$delete_feedback <- renderUI(
         tags$div(class = "alert alert-success mt-2",

@@ -4,7 +4,7 @@
 #' Uses shinyauthr for session management.
 #'
 #' @param id Module namespace ID
-#' @param users_conn SQLite connection for users database
+#' @param db_conn DB connection
 
 #' Login modal UI (shown as a modal dialog)
 #'
@@ -35,9 +35,9 @@ login_modal_ui <- function(id) {
 #' Login server logic
 #'
 #' @param id Module namespace ID
-#' @param users_conn SQLite connection for users database
+#' @param db_conn DB connection
 #' @return Reactive list with logged_in (logical) and info (user data.frame)
-login_server <- function(id, users_conn) {
+login_server <- function(id, db_conn) {
   moduleServer(id, function(input, output, session) {
     credentials_rv <- reactiveValues(logged_in = FALSE, info = NULL, token = NULL)
 
@@ -54,7 +54,7 @@ login_server <- function(id, users_conn) {
     }, once = TRUE)
 
     observeEvent(input$login_btn, {
-      user <- check_credentials(input$username, input$password, users_conn)
+      user <- check_credentials(input$username, input$password, db_conn)
       if (!is.null(user)) {
         token <- generate_session_token()
         store_session_token(token, user)

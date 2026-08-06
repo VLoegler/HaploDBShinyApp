@@ -38,7 +38,7 @@ change_password_server <- function(id, users_conn, user_info) {
       u <- user_info()
       row <- DBI::dbGetQuery(
         users_conn,
-        "SELECT username, role, created_at FROM users WHERE id = ?",
+        "SELECT username, role, created_at FROM users WHERE id = $1",
         params = list(u$id)
       )
       if (nrow(row) == 0) return(NULL)
@@ -73,7 +73,7 @@ change_password_server <- function(id, users_conn, user_info) {
       # Verifying current password
       row <- DBI::dbGetQuery(
         users_conn,
-        "SELECT password_hash FROM users WHERE id = ?",
+        "SELECT password_hash FROM users WHERE id = $1",
         params = list(u$id)
       )
 
@@ -114,7 +114,7 @@ change_password_server <- function(id, users_conn, user_info) {
       new_hash <- hash_password(new_pw)
       DBI::dbExecute(
         users_conn,
-        "UPDATE users SET password_hash = ? WHERE id = ?",
+        "UPDATE users SET password_hash = $1 WHERE id = $2",
         params = list(new_hash, u$id)
       )
 

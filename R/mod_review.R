@@ -1,12 +1,11 @@
 #' Review Entries Module
 #'
 #' Admin-only tab for reviewing pending submissions.
-#' Supports approve (insert into main DB + delete from pending) and reject (delete from pending).
+#' Supports approve (insert into main DB tables + delete from pending) and reject (delete from pending).
 #' Admin cannot approve their own submissions (server-side enforced).
 #'
 #' @param id Module namespace ID
-#' @param main_conn Main SQLite DB connection
-#' @param pending_conn Pending submissions SQLite connection
+#' @param db_conn DB connection
 #' @param user_info Reactive returning logged-in user data.frame
 
 review_ui <- function(id) {
@@ -43,7 +42,7 @@ review_ui <- function(id) {
   )
 }
 
-review_server <- function(id, main_conn, pending_conn, user_info) {
+review_server <- function(id, db_conn, user_info) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -53,12 +52,12 @@ review_server <- function(id, main_conn, pending_conn, user_info) {
 
     update_dropdown_counts <- function() {
       current_user <- user_info()$username
-      n_yjs <- DBI::dbGetQuery(pending_conn,
-        "SELECT COUNT(*) AS n FROM pending_yjs WHERE submitted_by != ?",
-        params = list(current_user))$n
-      n_strains <- DBI::dbGetQuery(pending_conn,
-        "SELECT COUNT(*) AS n FROM pending_strains WHERE submitted_by != ?",
-        params = list(current_user))$n
+      n_yjs <- as.integer(DBI::dbGetQuery(db_conn,
+        "SELECT COUNT(*) AS n FROM pending_yjs WHERE submitted_by != $1",
+        params = list(current_user))$n)
+      n_strains <- as.integer(DBI::dbGetQuery(db_conn,
+        "SELECT COUNT(*) AS n FROM pending_strains WHERE submitted_by != $1",
+        params = list(current_user))$n)
       review_count(n_yjs + n_strains)
       choices <- setNames(
         c("pending_yjs", "pending_strains"),
@@ -74,8 +73,8 @@ review_server <- function(id, main_conn, pending_conn, user_info) {
       table_name <- input$pending_table
       if (is.null(table_name)) table_name <- "pending_yjs"
       current_user <- user_info()$username
-      df <- DBI::dbGetQuery(pending_conn,
-        sprintf("SELECT * FROM %s WHERE submitted_by != ? ORDER BY submitted_at DESC",
+      df <- DBI::dbGetQuery(db_conn,
+        sprintf("SELECT * FROM %s WHERE submitted_by != $1 ORDER BY submitted_at DESC",
                 table_name),
         params = list(current_user))
       pending_data(df)
@@ -144,18 +143,18 @@ review_server <- function(id, main_conn, pending_conn, user_info) {
 
         tryCatch({
           if (table_name == "pending_yjs") {
-            assigned_yjs <- approve_yjs_row(row, main_conn, pending_conn)
+            assigned_yjs <- approve_yjs_row(row, db_conn)
             create_notification(
-              pending_conn, row$submitted_by, "YJS Sample",
-              row$SAMPLE_NAME, assigned_yjs, "approved", current_user,
-              box = row$BOX_NUMBER, box_row = row$BOX_ROW, box_col = row$BOX_COL,
-              plate = row$PLATE, plate_row = row$PLATE_ROW, plate_col = row$PLATE_COL
+              db_conn, row$submitted_by, "YJS Sample",
+              row$sample_name, assigned_yjs, "approved", current_user,
+              box = row$box_number, box_row = row$box_row, box_col = row$box_col,
+              plate = row$plate, plate_row = row$plate_row, plate_col = row$plate_col
             )
           } else if (table_name == "pending_strains") {
-            approve_strain_row(row, main_conn, pending_conn)
+            approve_strain_row(row, db_conn)
             create_notification(
-              pending_conn, row$submitted_by, "Strain",
-              row$original_name, row$STRAIN, "approved", current_user
+              db_conn, row$submitted_by, "Strain",
+              row$original_name, row$strain, "approved", current_user
             )
           }
           approved <- approved + 1
@@ -196,26 +195,26 @@ review_server <- function(id, main_conn, pending_conn, user_info) {
 
       for (i in seq_len(nrow(rows))) {
         row <- rows[i, , drop = FALSE]
-        entry_name <- if (table_name == "pending_yjs") row$SAMPLE_NAME else row$original_name
+        entry_name <- if (table_name == "pending_yjs") row$sample_name else row$original_name
         entry_type <- if (table_name == "pending_yjs") "YJS Sample" else "Strain"
         if (table_name == "pending_yjs") {
           create_notification(
-            pending_conn, row$submitted_by, entry_type,
+            db_conn, row$submitted_by, entry_type,
             entry_name, NA_character_, "rejected", current_user,
-            box = row$BOX_NUMBER, box_row = row$BOX_ROW, box_col = row$BOX_COL,
-            plate = row$PLATE, plate_row = row$PLATE_ROW, plate_col = row$PLATE_COL
+            box = row$box_number, box_row = row$box_row, box_col = row$box_col,
+            plate = row$plate, plate_row = row$plate_row, plate_col = row$plate_col
           )
         } else {
           create_notification(
-            pending_conn, row$submitted_by, entry_type,
+            db_conn, row$submitted_by, entry_type,
             entry_name, NA_character_, "rejected", current_user
           )
         }
       }
 
-      placeholders <- paste(rep("?", length(ids)), collapse = ",")
+      placeholders <- paste0("$", seq_along(ids), collapse = ",")
       DBI::dbExecute(
-        pending_conn,
+        db_conn,
         sprintf("DELETE FROM %s WHERE id IN (%s)", table_name, placeholders),
         params = as.list(ids)
       )
@@ -235,55 +234,59 @@ review_server <- function(id, main_conn, pending_conn, user_info) {
 
 #' Approve a YJS row: auto-assign YJS number, insert into main DB, delete from pending
 #' @return The assigned YJS number
-approve_yjs_row <- function(row, main_conn, pending_conn) {
-  assigned_yjs <- get_next_yjs_number(main_conn, 1)
+approve_yjs_row <- function(row, db_conn) {
+  assigned_yjs <- get_next_yjs_number(db_conn, 1)
 
-  yjs_cols <- c("YJS_NUMBER", "SAMPLE_NAME", "SPECIES", "MATING_TYPE", "PLOIDY",
-                  "GENOTYPE", "SPORULATION", "EXTERNAL_ORIGIN", "ECO_ORIGIN",
-                  "COMMENTS_ORIGIN", "PARENTAL_ORIGIN", "PUBLICATION", "STRAINS_GROUP",
-                  "OLD_BOX", "BOX_NUMBER", "BOX_ROW", "BOX_COL",
-                  "PLATE", "PLATE_ROW", "PLATE_COL",
-                  "NOTES", "STOCKED_BY", "COMMENTS", "ID_STRAIN",
-                  "SAMPLE_TYPE", "COLLECTION")
+  db_yjs_cols <- c("yjs_number", "sample_name", "species", "mating_type", "ploidy",
+                   "genotype", "sporulation", "external_origin", "eco_origin",
+                   "comments_origin", "parental_origin", "publication", "strains_group",
+                   "old_box", "box_number", "box_row", "box_col",
+                   "plate", "plate_row", "plate_col",
+                   "notes", "stocked_by", "comments", "id_strain",
+                   "sample_type", "collection")
 
-  insert_data <- row[, yjs_cols, drop = FALSE]
-  insert_data$YJS_NUMBER <- assigned_yjs
-  placeholders <- paste(rep("?", length(yjs_cols)), collapse = ", ")
-  col_names <- paste(sprintf("`%s`", yjs_cols), collapse = ", ")
-  sql <- sprintf("INSERT INTO YJSnumbers (%s) VALUES (%s)", col_names, placeholders)
+  insert_data <- row[, db_yjs_cols, drop = FALSE]
+  names(insert_data) <- db_yjs_cols
+  insert_data$yjs_number <- assigned_yjs
+  placeholders <- paste0("$", seq_along(db_yjs_cols), collapse = ", ")
+  col_names <- paste(db_yjs_cols, collapse = ", ")
+  sql <- sprintf("INSERT INTO yjs_numbers (%s) VALUES (%s)", col_names, placeholders)
 
-  DBI::dbWithTransaction(main_conn, {
-    DBI::dbExecute(main_conn, sql, params = unname(as.list(insert_data)))
+  DBI::dbWithTransaction(db_conn, {
+    DBI::dbExecute(db_conn, sql, params = unname(as.list(insert_data)))
   })
 
-  DBI::dbExecute(pending_conn,
-                 "DELETE FROM pending_yjs WHERE id = ?",
+  DBI::dbExecute(db_conn,
+                 "DELETE FROM pending_yjs WHERE id = $1",
                  params = list(row$id))
 
   assigned_yjs
 }
 
-#' Approve a Strain row: insert into main DB Strains + AltNames, delete from pending
-approve_strain_row <- function(row, main_conn, pending_conn) {
-  strain_cols <- c("STRAIN", "ISOLATION", "ECO_ORIGIN", "GEO_ORIGIN",
-                   "CONTINENT", "COUNTRY", "CLADE", "SRR_ID", "SPECIES")
+#' Approve a Strain row: insert into main DB Strains + alt_names, delete from pending
+approve_strain_row <- function(row, db_conn) {
+  strain_cols <- c("strain", "isolation", "eco_origin", "geo_origin",
+                   "continent", "country", "clade", "srr_id", "species")
+  db_strain_cols <- c("strain", "isolation", "eco_origin", "geo_origin",
+                      "continent", "country", "clade", "srr_id", "species")
 
   insert_data <- row[, strain_cols, drop = FALSE]
-  placeholders <- paste(rep("?", length(strain_cols)), collapse = ", ")
-  col_names <- paste(sprintf("`%s`", strain_cols), collapse = ", ")
-  sql <- sprintf("INSERT INTO Strains (%s) VALUES (%s)", col_names, placeholders)
+  names(insert_data) <- db_strain_cols
+  placeholders <- paste0("$", seq_along(strain_cols), collapse = ", ")
+  col_names <- paste(db_strain_cols, collapse = ", ")
+  sql <- sprintf("INSERT INTO strains (%s) VALUES (%s)", col_names, placeholders)
 
-  DBI::dbWithTransaction(main_conn, {
-    DBI::dbExecute(main_conn, sql, params = unname(as.list(insert_data)))
+  DBI::dbWithTransaction(db_conn, {
+    DBI::dbExecute(db_conn, sql, params = unname(as.list(insert_data)))
 
     if (!is.na(row$original_name) && nchar(trimws(row$original_name)) > 0) {
-      DBI::dbExecute(main_conn,
-                     "INSERT INTO AltNames (STRAIN, ALT_NAME) VALUES (?, ?)",
-                     params = list(row$STRAIN, row$original_name))
+      DBI::dbExecute(db_conn,
+                     "INSERT INTO alt_names (strain, alt_name) VALUES ($1, $2)",
+                     params = list(row$strain, row$original_name))
     }
   })
 
-  DBI::dbExecute(pending_conn,
-                 "DELETE FROM pending_strains WHERE id = ?",
+  DBI::dbExecute(db_conn,
+                 "DELETE FROM pending_strains WHERE id = $1",
                  params = list(row$id))
 }
