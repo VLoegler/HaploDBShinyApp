@@ -51,6 +51,14 @@ if (length(missing_vars) > 0) {
 message("✓ Environment variables loaded")
 
 # ----------------------------------------------------------------------------
+# Paths
+# ----------------------------------------------------------------------------
+
+HAPLODB_PATH <- "data/haploDB/haplodb.sqlite"
+USERS_PATH <- "data/users.sqlite"
+PENDING_PATH <- "data/pending.sqlite"
+
+# ----------------------------------------------------------------------------
 # Database connections
 # ----------------------------------------------------------------------------
 
@@ -72,17 +80,17 @@ message("Opening SQLite databases...")
 
 main_sqlite <- dbConnect(
   RSQLite::SQLite(),
-  "data/haploDB/haplodb.sqlite"
+  HAPLODB_PATH
 )
 
 users_sqlite <- dbConnect(
   RSQLite::SQLite(),
-  "data/users.sqlite"
+  USERS_PATH
 )
 
 pending_sqlite <- dbConnect(
   RSQLite::SQLite(),
-  "data/pending.sqlite"
+  PENDING_PATH
 )
 
 message("✓ Connected to haplodb.sqlite")
@@ -156,14 +164,6 @@ pending_tables <- c(
 )
 
 message("✓ Migration mappings loaded")
-
-# ----------------------------------------------------------------------------
-# Paths
-# ----------------------------------------------------------------------------
-
-HAPLODB_PATH <- "data/haploDB/haplodb.sqlite"
-USERS_PATH <- "data/users.sqlite"
-PENDING_PATH <- "data/pending.sqlite"
 
 # ----------------------------------------------------------------------------
 # Utility functions
