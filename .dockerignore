@@ -1,6 +1,5 @@
 .git/
 .gitignore
-.env
 renv/library/
 renv/local/
 renv/cellar/

@@ -206,7 +206,7 @@ CREATE TABLE IF NOT EXISTS pending_yjs (
   parental_origin TEXT,
   publication TEXT,
   strains_group TEXT,
-  old_box INTEGER,
+  old_box TEXT,
   box_number INTEGER,
   box_row INTEGER,
   box_col INTEGER,

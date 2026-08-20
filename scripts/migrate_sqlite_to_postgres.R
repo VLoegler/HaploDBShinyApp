@@ -72,17 +72,17 @@ message("Opening SQLite databases...")
 
 main_sqlite <- dbConnect(
   RSQLite::SQLite(),
-  "data/haploDB/haplodb.sqlite"
+  "/Users/vloegler/Desktop/DB_BACKUP/haplodb-dbs/haplodb.sqlite"
 )
 
 users_sqlite <- dbConnect(
   RSQLite::SQLite(),
-  "data/users.sqlite"
+  "/Users/vloegler/Desktop/DB_BACKUP/haplodb-dbs/users.sqlite"
 )
 
 pending_sqlite <- dbConnect(
   RSQLite::SQLite(),
-  "data/pending.sqlite"
+  "/Users/vloegler/Desktop/DB_BACKUP/haplodb-dbs/pending.sqlite"
 )
 
 message("✓ Connected to haplodb.sqlite")
@@ -189,6 +189,9 @@ copy_table <- function(sqlite_con,
   }
 
   names(df) <- tolower(names(df))
+  if (pg_table == "seq_data") {
+    names(df)[names(df) == "id_seqdata"] <- "id_seq_data"
+  }
 
   # --------------------------------------------------------------------------
   # Import

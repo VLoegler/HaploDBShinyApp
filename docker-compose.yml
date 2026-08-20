@@ -5,6 +5,5 @@ services:
     restart: unless-stopped
     ports:
       - "3838:3838"
-    volumes:
-      - ./data:/srv/shiny-server/haplodb/data
-      - ./config.yml:/srv/shiny-server/haplodb/config.yml
+    mem_limit: 16g
+    cpus: 8
