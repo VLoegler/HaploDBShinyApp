@@ -72,17 +72,17 @@ message("Opening SQLite databases...")
 
 main_sqlite <- dbConnect(
   RSQLite::SQLite(),
-  "/Users/vloegler/Desktop/DB_BACKUP/haplodb-dbs/haplodb.sqlite"
+  "data/haploDB/haplodb.sqlite"
 )
 
 users_sqlite <- dbConnect(
   RSQLite::SQLite(),
-  "/Users/vloegler/Desktop/DB_BACKUP/haplodb-dbs/users.sqlite"
+  "data/users.sqlite"
 )
 
 pending_sqlite <- dbConnect(
   RSQLite::SQLite(),
-  "/Users/vloegler/Desktop/DB_BACKUP/haplodb-dbs/pending.sqlite"
+  "data/pending.sqlite"
 )
 
 message("✓ Connected to haplodb.sqlite")
