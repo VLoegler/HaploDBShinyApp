@@ -2,14 +2,15 @@
 
 create_postgres_conn <- function() {
 
-  DBI::dbConnect(
-    RPostgres::Postgres(),
-    host = Sys.getenv("DB_HOST"),
+  pool::dbPool(
+    drv = RPostgres::Postgres(),
     dbname = Sys.getenv("DB_NAME"),
+    host = Sys.getenv("DB_HOST"),
+    port = Sys.getenv("DB_PORT"),
     user = Sys.getenv("DB_USER"),
     password = Sys.getenv("DB_PASSWORD"),
-    port = as.integer(Sys.getenv("DB_PORT")),
-    sslmode = "require"
+    minSize = 1,
+    maxSize = 10
   )
 
 }

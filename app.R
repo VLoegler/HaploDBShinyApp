@@ -2,6 +2,7 @@ library(shiny)
 library(bslib)
 library(DT)
 library(DBI)
+library(pool)
 library(RPostgres)
 library(sodium)
 library(dplyr)
@@ -28,7 +29,7 @@ seed_default_admin(main_conn)
 
 # Clean up on app stop
 onStop(function() {
-  DBI::dbDisconnect(main_conn)
+  pool::poolClose(main_conn)
 })
 
 # Theme (light + dark mode support)
