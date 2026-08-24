@@ -3,6 +3,8 @@ services:
     build: .
     container_name: haplodb-app
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
       - "3838:3838"
     mem_limit: 16g

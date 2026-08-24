@@ -29,8 +29,9 @@ ensure_users_table <- function(db_conn) {
 #' Seed the configured admin account from environment variables
 #'
 #' Reads MASTERADMIN and MASTERPWD from the environment (or .env when loaded).
-#' If a matching user already exists, it updates the password and grants admin role.
-#' Otherwise it creates a new admin user.
+#' Creates a new admin user when the configured username does not exist.
+#' Existing accounts are left unchanged so application restarts cannot reset
+#' passwords or alter roles.
 #'
 #' @param db_conn Database DBI connection for users table
 #' @param admin_config Optional list with username and password values
@@ -68,12 +69,7 @@ seed_default_admin <- function(db_conn, admin_config = NULL) {
     )
     message("Default admin account created: ", username)
   } else {
-    DBI::dbExecute(
-      db_conn,
-      "UPDATE users SET password_hash = $1, role = 'admin' WHERE username = $2",
-      params = list(hashed, username)
-    )
-    message("Default admin account updated: ", username)
+    message("Default admin account already exists; leaving it unchanged: ", username)
   }
 
   invisible(NULL)

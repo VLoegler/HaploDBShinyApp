@@ -131,15 +131,22 @@ test_that("seed_default_admin creates admin when none exists", {
   expect_equal(users$username, "myadmin")
 })
 
-test_that("seed_default_admin updates the configured admin when it already exists", {
+test_that("seed_default_admin leaves an existing account unchanged", {
   conn <- create_pg_test_conn()
   on.exit(DBI::dbDisconnect(conn), add = TRUE)
   ensure_users_table(conn)
 
-  seed_default_admin(conn, list(username = "admin1", password = "pass1"))
+  original_hash <- hash_password("pass1")
+  DBI::dbExecute(conn,
+    "INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3)",
+    params = list("admin1", original_hash, "basic")
+  )
   seed_default_admin(conn, list(username = "admin1", password = "pass2"))
 
-  users <- DBI::dbGetQuery(conn, "SELECT username, role FROM users WHERE username = 'admin1'")
+  users <- DBI::dbGetQuery(conn,
+    "SELECT username, password_hash, role FROM users WHERE username = 'admin1'")
   expect_equal(nrow(users), 1)
-  expect_equal(users$role, "admin")
+  expect_equal(users$role, "basic")
+  expect_true(sodium::password_verify(users$password_hash, as.character("pass1")))
+  expect_false(sodium::password_verify(users$password_hash, as.character("pass2")))
 })
