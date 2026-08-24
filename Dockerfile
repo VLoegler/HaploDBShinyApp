@@ -6,6 +6,10 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     libxml2-dev \
     libpq-dev \
+    libcairo2-dev \
+    libfontconfig1-dev \
+    libpng-dev \
+    pandoc \
     git \
     && rm -rf /var/lib/apt/lists/*
 
@@ -16,9 +20,10 @@ WORKDIR /srv/shiny-server/haplodb
 COPY renv.lock renv.lock
 
 RUN R -e "\
-  install.packages(c('renv', 'BiocManager')); \
-  options(repos = c(BiocManager::repositories(), \
-    CRAN = 'https://packagemanager.posit.co/cran/latest')); \
+  options(repos = c( \
+    BiocManager::repositories(), \
+    CRAN = 'https://packagemanager.posit.co/cran/latest' \
+  )); \
   renv::restore(prompt = FALSE) \
 "
 

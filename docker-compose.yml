@@ -7,5 +7,5 @@ services:
       - .env
     ports:
       - "3838:3838"
-    mem_limit: 16g
-    cpus: 8
+    mem_limit: 12g
+    cpus: 2
