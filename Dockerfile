@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 rocker/shiny:4.5.2
+FROM rocker/r-ver:4.5.2
 
 RUN apt-get update && apt-get install -y \
     libsodium-dev \
@@ -9,13 +9,12 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
+RUN R -e "install.packages(c('shiny','renv','BiocManager'), repos='https://cloud.r-project.org')"
+
 WORKDIR /srv/shiny-server/haplodb
 
-# Use Posit Package Manager binaries to avoid compiling under QEMU emulation
-ENV RENV_CONFIG_PPM_ENABLED=TRUE
-ENV RENV_CONFIG_REPOS_OVERRIDE="https://packagemanager.posit.co/cran/latest"
-
 COPY renv.lock renv.lock
+
 RUN R -e "\
   install.packages(c('renv', 'BiocManager')); \
   options(repos = c(BiocManager::repositories(), \
