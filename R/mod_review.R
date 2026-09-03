@@ -44,44 +44,98 @@ review_ui <- function(id) {
 
 review_server <- function(id, db_conn, user_info) {
   moduleServer(id, function(input, output, session) {
-    ns <- session$ns
 
     pending_data <- reactiveVal(NULL)
 
     review_count <- reactiveVal(0)
 
-    update_dropdown_counts <- function() {
+    get_pending_counts <- function() {
+
       current_user <- user_info()$username
-      n_yjs <- as.integer(DBI::dbGetQuery(db_conn,
+
+      yjs_count <- DBI::dbGetQuery(
+        db_conn,
         "SELECT COUNT(*) AS n FROM pending_yjs WHERE submitted_by != $1",
-        params = list(current_user))$n)
-      n_strains <- as.integer(DBI::dbGetQuery(db_conn,
+        params = list(current_user)
+      )
+
+      strain_count <- DBI::dbGetQuery(
+        db_conn,
         "SELECT COUNT(*) AS n FROM pending_strains WHERE submitted_by != $1",
-        params = list(current_user))$n)
-      review_count(n_yjs + n_strains)
+        params = list(current_user)
+      )
+
+      list(
+        yjs = if (nrow(yjs_count) > 0) as.integer(yjs_count$n[[1]]) else 0L,
+        strains = if (nrow(strain_count) > 0) as.integer(strain_count$n[[1]]) else 0L
+      )
+    }
+
+    choose_default_table <- function() {
+      counts <- get_pending_counts()
+
+      if (counts$yjs == 0 && counts$strains > 0) {
+        "pending_strains"
+      } else {
+        "pending_yjs"
+      }
+    }
+
+    update_dropdown_counts <- function() {
+
+      counts <- get_pending_counts()
+
+      review_count(counts$yjs + counts$strains)
+
       choices <- setNames(
         c("pending_yjs", "pending_strains"),
-        c(sprintf("YJS Samples (%d)", n_yjs),
-          sprintf("Strains (%d)", n_strains))
+        c(
+          sprintf("YJS Samples (%d)", counts$yjs),
+          sprintf("Strains (%d)", counts$strains)
+        )
       )
-      updateSelectInput(session, "pending_table", choices = choices,
-                        selected = input$pending_table)
+
+      updateSelectInput(
+        session,
+        "pending_table",
+        choices = choices,
+        selected = input$pending_table
+      )
     }
 
     load_pending <- function() {
       req(is_admin(user_info()))
-      table_name <- input$pending_table
-      if (is.null(table_name)) table_name <- "pending_yjs"
+
       current_user <- user_info()$username
-      df <- DBI::dbGetQuery(db_conn,
-        sprintf("SELECT * FROM %s WHERE submitted_by != $1 ORDER BY submitted_at DESC",
-                table_name),
-        params = list(current_user))
+
+      req(input$pending_table)
+      table_name <- input$pending_table
+
+      df <- DBI::dbGetQuery(
+        db_conn,
+        sprintf(
+          "SELECT * FROM %s WHERE submitted_by != $1 ORDER BY submitted_at DESC",
+          table_name
+        ),
+        params = list(current_user)
+      )
+
       pending_data(df)
       update_dropdown_counts()
     }
 
-    observe({ load_pending() })
+    observe({
+
+      req(user_info())
+      req(user_info()$username)
+
+      updateSelectInput(
+        session,
+        "pending_table",
+        selected = choose_default_table()  )
+
+    }) |> bindEvent(user_info(), once = TRUE)
+
     observeEvent(input$pending_table, { load_pending() })
     observeEvent(input$refresh_btn, { load_pending() })
 
@@ -159,7 +213,7 @@ review_server <- function(id, db_conn, user_info) {
           }
           approved <- approved + 1
         }, error = function(e) {
-          failed <<- c(failed, sprintf("Row %d: %s", row_id, e$message))
+          failed <<- c(failed, sprintf("Row %s: %s", as.character(row_id), conditionMessage(e)))
         })
       }
 
@@ -252,13 +306,15 @@ approve_yjs_row <- function(row, db_conn) {
   col_names <- paste(db_yjs_cols, collapse = ", ")
   sql <- sprintf("INSERT INTO yjs_numbers (%s) VALUES (%s)", col_names, placeholders)
 
-  DBI::dbWithTransaction(db_conn, {
-    DBI::dbExecute(db_conn, sql, params = unname(as.list(insert_data)))
+  pool::poolWithTransaction(db_conn, function(conn) {
+
+    DBI::dbExecute(conn, sql, params = unname(as.list(insert_data)))
+
+    DBI::dbExecute(conn,
+                  "DELETE FROM pending_yjs WHERE id = $1",
+                  params = list(row$id))
   })
 
-  DBI::dbExecute(db_conn,
-                 "DELETE FROM pending_yjs WHERE id = $1",
-                 params = list(row$id))
 
   assigned_yjs
 }
@@ -276,17 +332,18 @@ approve_strain_row <- function(row, db_conn) {
   col_names <- paste(db_strain_cols, collapse = ", ")
   sql <- sprintf("INSERT INTO strains (%s) VALUES (%s)", col_names, placeholders)
 
-  DBI::dbWithTransaction(db_conn, {
-    DBI::dbExecute(db_conn, sql, params = unname(as.list(insert_data)))
+  pool::poolWithTransaction(db_conn, function(conn) {
+    DBI::dbExecute(conn, sql, params = unname(as.list(insert_data)))
 
     if (!is.na(row$original_name) && nchar(trimws(row$original_name)) > 0) {
-      DBI::dbExecute(db_conn,
+
+      DBI::dbExecute(conn,
                      "INSERT INTO alt_names (strain, alt_name) VALUES ($1, $2)",
                      params = list(row$strain, row$original_name))
     }
-  })
 
-  DBI::dbExecute(db_conn,
-                 "DELETE FROM pending_strains WHERE id = $1",
-                 params = list(row$id))
+    DBI::dbExecute(conn,
+                  "DELETE FROM pending_strains WHERE id = $1",
+                  params = list(row$id))
+  })
 }
